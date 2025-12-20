@@ -10,33 +10,38 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"pulse/pkg/message"
 )
 
 const (
-	// MaxSegmentSize defines the maximum size of a log segment before rotation (10MB).
-	MaxSegmentSize = 10 * 1024 * 1024
+	// MaxSegmentSize defines the maximum size of a log segment before rotation.
+	// Set to 128MB as requested.
+	MaxSegmentSize = 128 * 1024 * 1024
 )
 
-// Segment represents a single log file.
+// Segment represents a single log file on disk.
 type Segment struct {
-	BaseOffset uint64
-	FilePath   string
-	File       *os.File
-	Size       int64
+	BaseOffset uint64   // The offset of the first message in this segment
+	FilePath   string   // Absolute path to the segment file
+	File       *os.File // File handle (only open for the active segment)
+	Size       int64    // Current size of the segment in bytes
 }
 
 // AppendOnlyLog manages the persistent log with rotating segments.
+// It ensures messages are written sequentially and split across files.
 type AppendOnlyLog struct {
-	Dir           string
-	mu            sync.RWMutex
-	ActiveSegment *Segment
-	Segments      []*Segment
-	GlobalOffset  uint64
+	Dir           string       // Directory where segment files are stored
+	mu            sync.RWMutex // Mutex for thread-safe access
+	ActiveSegment *Segment     // The current segment being written to
+	Segments      []*Segment   // List of all segments, sorted by BaseOffset
+	GlobalOffset  uint64       // The next offset to be assigned to a message
+	TotalSize     int64        // Total size of all segments in bytes
 }
 
 // New creates or opens an AppendOnlyLog in the specified directory.
+// It recovers the state from existing files on disk.
 func New(dir string) (*AppendOnlyLog, error) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
@@ -54,7 +59,7 @@ func New(dir string) (*AppendOnlyLog, error) {
 	return l, nil
 }
 
-// loadSegments scans the directory for segment files and reconstructs the state.
+// loadSegments scans the directory for segment files and reconstructs the in-memory state.
 func (l *AppendOnlyLog) loadSegments() error {
 	entries, err := os.ReadDir(l.Dir)
 	if err != nil {
@@ -66,6 +71,7 @@ func (l *AppendOnlyLog) loadSegments() error {
 			continue
 		}
 
+		// Parse base offset from filename (e.g., "segment-00000000000000000001.log")
 		baseOffsetStr := strings.TrimSuffix(strings.TrimPrefix(entry.Name(), "segment-"), ".log")
 		baseOffset, err := strconv.ParseUint(baseOffsetStr, 10, 64)
 		if err != nil {
@@ -83,9 +89,10 @@ func (l *AppendOnlyLog) loadSegments() error {
 			Size:       info.Size(),
 		}
 		l.Segments = append(l.Segments, seg)
+		l.TotalSize += info.Size()
 	}
 
-	// Sort segments by BaseOffset
+	// Sort segments by BaseOffset to ensure correct order
 	sort.Slice(l.Segments, func(i, j int) bool {
 		return l.Segments[i].BaseOffset < l.Segments[j].BaseOffset
 	})
@@ -93,6 +100,8 @@ func (l *AppendOnlyLog) loadSegments() error {
 	// Initialize GlobalOffset and ActiveSegment
 	if len(l.Segments) > 0 {
 		lastSeg := l.Segments[len(l.Segments)-1]
+		
+		// Open the last segment for appending
 		file, err := os.OpenFile(lastSeg.FilePath, os.O_RDWR|os.O_APPEND, 0644)
 		if err != nil {
 			return err
@@ -114,11 +123,13 @@ func (l *AppendOnlyLog) loadSegments() error {
 }
 
 // findNextOffset reads the segment to determine the next available offset.
+// This is used during recovery to ensure we don't overwrite existing messages.
 func (l *AppendOnlyLog) findNextOffset(seg *Segment) (uint64, error) {
 	if seg.Size == 0 {
 		return seg.BaseOffset, nil
 	}
 
+	// Seek to start to read the whole file
 	if _, err := seg.File.Seek(0, 0); err != nil {
 		return 0, err
 	}
@@ -137,7 +148,7 @@ func (l *AppendOnlyLog) findNextOffset(seg *Segment) (uint64, error) {
 		lastOffset = msg.Offset + 1
 	}
 
-	// Reset seek to end for appending
+	// Reset seek to end for appending new messages
 	if _, err := seg.File.Seek(0, 2); err != nil {
 		return 0, err
 	}
@@ -145,15 +156,17 @@ func (l *AppendOnlyLog) findNextOffset(seg *Segment) (uint64, error) {
 	return lastOffset, nil
 }
 
-// rotate creates a new segment file.
+// rotate creates a new segment file when the current one is full.
 func (l *AppendOnlyLog) rotate() error {
+	// Close the current active segment
 	if l.ActiveSegment != nil {
 		if err := l.ActiveSegment.File.Close(); err != nil {
 			return err
 		}
-		l.ActiveSegment.File = nil
+		l.ActiveSegment.File = nil // Release file handle
 	}
 
+	// Create new segment filename based on the current GlobalOffset
 	filename := fmt.Sprintf("segment-%020d.log", l.GlobalOffset)
 	path := filepath.Join(l.Dir, filename)
 
@@ -175,10 +188,12 @@ func (l *AppendOnlyLog) rotate() error {
 }
 
 // Append writes a message to the log.
+// It handles serialization, segment rotation, and offset assignment.
 func (l *AppendOnlyLog) Append(msg *message.Message) (uint64, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	// Initialize first segment if none exists
 	if l.ActiveSegment == nil {
 		if err := l.rotate(); err != nil {
 			return 0, err
@@ -194,35 +209,42 @@ func (l *AppendOnlyLog) Append(msg *message.Message) (uint64, error) {
 	}
 
 	// Prepare buffer: 4 bytes length + data
+	// We use a length prefix to know how many bytes to read during deserialization
 	totalLen := 4 + len(data)
 	buf := make([]byte, totalLen)
 	binary.BigEndian.PutUint32(buf[0:4], uint32(len(data)))
 	copy(buf[4:], data)
 
+	// Check if we need to rotate
 	if l.ActiveSegment.Size+int64(totalLen) > MaxSegmentSize {
 		if err := l.rotate(); err != nil {
 			return 0, err
 		}
 	}
 
+	// Write to disk
 	n, err := l.ActiveSegment.File.Write(buf)
 	if err != nil {
 		return 0, err
 	}
 
+	// Update state
 	l.ActiveSegment.Size += int64(n)
+	l.TotalSize += int64(n)
 	l.GlobalOffset++
 
 	return msg.Offset, nil
 }
 
 // Read retrieves messages starting from the given offset.
+// It seamlessly reads across multiple segments.
 func (l *AppendOnlyLog) Read(offset uint64, max int) ([]*message.Message, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
 	var msgs []*message.Message
 	
+	// Find the starting segment using binary search or linear scan
 	startIdx := -1
 	for i, seg := range l.Segments {
 		nextBase := ^uint64(0) // Max uint64
@@ -237,12 +259,14 @@ func (l *AppendOnlyLog) Read(offset uint64, max int) ([]*message.Message, error)
 	}
 
 	if startIdx == -1 {
-		return msgs, nil
+		return msgs, nil // Offset not found (too old or future)
 	}
 
+	// Iterate through segments starting from startIdx
 	for i := startIdx; i < len(l.Segments); i++ {
 		seg := l.Segments[i]
 		
+		// Open the segment file for reading
 		f, err := os.Open(seg.FilePath)
 		if err != nil {
 			return nil, err
@@ -256,7 +280,7 @@ func (l *AppendOnlyLog) Read(offset uint64, max int) ([]*message.Message, error)
 			}
 			if err != nil {
 				f.Close()
-				return nil, err // Stop on error
+				return nil, err // Stop on error (corruption?)
 			}
 
 			if m.Offset >= offset {
@@ -273,6 +297,81 @@ func (l *AppendOnlyLog) Read(offset uint64, max int) ([]*message.Message, error)
 	return msgs, nil
 }
 
+// RunRetention applies retention policies to the log.
+// maxBytes: maximum total size of the log in bytes (0 = infinite).
+// maxAge: maximum age of messages in the log (0 = infinite).
+func (l *AppendOnlyLog) RunRetention(maxBytes int64, maxAge time.Duration) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// 1. Size-based retention
+	if maxBytes > 0 {
+		for len(l.Segments) > 1 && l.TotalSize > maxBytes {
+			// Delete the oldest segment
+			oldest := l.Segments[0]
+			
+			// Safety check: never delete the active segment
+			if oldest == l.ActiveSegment {
+				break
+			}
+
+			if err := l.deleteSegment(oldest); err != nil {
+				return err
+			}
+			
+			// Remove from slice
+			l.Segments = l.Segments[1:]
+		}
+	}
+
+	// 2. Time-based retention
+	if maxAge > 0 {
+		now := time.Now()
+		for len(l.Segments) > 1 {
+			oldest := l.Segments[0]
+			
+			if oldest == l.ActiveSegment {
+				break
+			}
+
+			// Check modification time of the file
+			info, err := os.Stat(oldest.FilePath)
+			if err != nil {
+				fmt.Printf("Error stating segment %s: %v\n", oldest.FilePath, err)
+				break
+			}
+
+			// If the file was last modified before the cutoff, all messages in it are old.
+			if now.Sub(info.ModTime()) > maxAge {
+				if err := l.deleteSegment(oldest); err != nil {
+					return err
+				}
+				l.Segments = l.Segments[1:]
+			} else {
+				// Segments are ordered by time, so if this one is new enough, subsequent ones are too.
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// deleteSegment closes (if open) and removes the segment file.
+func (l *AppendOnlyLog) deleteSegment(seg *Segment) error {
+	if seg.File != nil {
+		seg.File.Close()
+	}
+	
+	if err := os.Remove(seg.FilePath); err != nil {
+		return fmt.Errorf("failed to delete segment %s: %w", seg.FilePath, err)
+	}
+	
+	l.TotalSize -= seg.Size
+	fmt.Printf("Deleted segment: %s (freed %d bytes)\n", filepath.Base(seg.FilePath), seg.Size)
+	return nil
+}
+
 // SegmentDecoder helps reading messages from a stream
 type SegmentDecoder struct {
 	r io.Reader
@@ -282,6 +381,8 @@ func NewSegmentDecoder(r io.Reader) *SegmentDecoder {
 	return &SegmentDecoder{r: r}
 }
 
+// Decode reads the next message from the stream.
+// It first reads the 4-byte length prefix, then the MessagePack payload.
 func (d *SegmentDecoder) Decode() (*message.Message, error) {
 	// Read length prefix (4 bytes)
 	lenBuf := make([]byte, 4)
