@@ -30,3 +30,9 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Project specific
+data/
+pulse
+broker
+.DS_Store
