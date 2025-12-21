@@ -21,6 +21,7 @@ type TopicConfig struct {
 	RetentionTime  int64  `json:"retention_time"`  // Nanoseconds, 0 means infinite
 	FlushThreshold int    `json:"flush_threshold"` // Number of messages
 	FlushInterval  int64  `json:"flush_interval"`  // Nanoseconds
+	SegmentSize    int64  `json:"segment_size"`    // Max bytes per segment
 }
 
 // Broker manages topics and routes messages.
@@ -85,6 +86,7 @@ func (b *Broker) restoreTopics() error {
 		logConfig := logstore.Config{
 			FlushInterval:  time.Duration(config.FlushInterval),
 			FlushThreshold: config.FlushThreshold,
+			MaxSegmentSize: config.SegmentSize,
 		}
 		logDir := filepath.Join(b.DataDir, topicName)
 		log, err := logstore.New(logDir, logConfig)
@@ -103,7 +105,7 @@ func (b *Broker) restoreTopics() error {
 }
 
 // CreateTopic creates a new topic and persists its configuration.
-func (b *Broker) CreateTopic(name string, fifo bool, retentionBytes int64, retentionTime time.Duration, flushThreshold int, flushInterval time.Duration) error {
+func (b *Broker) CreateTopic(name string, fifo bool, retentionBytes int64, retentionTime time.Duration, flushThreshold int, flushInterval time.Duration, segmentSize int64) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -124,6 +126,7 @@ func (b *Broker) CreateTopic(name string, fifo bool, retentionBytes int64, reten
 		RetentionTime:  int64(retentionTime),
 		FlushThreshold: flushThreshold,
 		FlushInterval:  int64(flushInterval),
+		SegmentSize:    segmentSize,
 	}
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
@@ -139,6 +142,7 @@ func (b *Broker) CreateTopic(name string, fifo bool, retentionBytes int64, reten
 	logConfig := logstore.Config{
 		FlushInterval:  flushInterval,
 		FlushThreshold: flushThreshold,
+		MaxSegmentSize: segmentSize,
 	}
 	log, err := logstore.New(topicDir, logConfig)
 	if err != nil {

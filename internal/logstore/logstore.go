@@ -16,12 +16,6 @@ import (
 	"pulse/pkg/message"
 )
 
-const (
-	// MaxSegmentSize defines the maximum size of a log segment before rotation.
-	// Set to 128MB as requested.
-	MaxSegmentSize = 128 * 1024 * 1024
-)
-
 // Segment represents a single log file on disk.
 type Segment struct {
 	BaseOffset uint64   // The offset of the first message in this segment
@@ -40,6 +34,9 @@ type AppendOnlyLog struct {
 	GlobalOffset  uint64       // The next offset to be assigned to a message
 	TotalSize     int64        // Total size of all segments in bytes
 
+	// Configuration
+	maxSegmentSize int64
+
 	// Buffering and Flush
 	bufWriter      *bufio.Writer
 	flushInterval  time.Duration
@@ -53,6 +50,7 @@ type AppendOnlyLog struct {
 type Config struct {
 	FlushInterval  time.Duration
 	FlushThreshold int
+	MaxSegmentSize int64
 }
 
 // New creates or opens an AppendOnlyLog in the specified directory.
@@ -62,11 +60,18 @@ func New(dir string, config Config) (*AppendOnlyLog, error) {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
+	// Default to 128MB if not set
+	maxSegSize := config.MaxSegmentSize
+	if maxSegSize <= 0 {
+		maxSegSize = 128 * 1024 * 1024
+	}
+
 	l := &AppendOnlyLog{
 		Dir:            dir,
 		Segments:       make([]*Segment, 0),
 		flushInterval:  config.FlushInterval,
 		flushThreshold: config.FlushThreshold,
+		maxSegmentSize: maxSegSize,
 		stopChan:       make(chan struct{}),
 	}
 
@@ -255,7 +260,7 @@ func (l *AppendOnlyLog) Append(msg *message.Message) (uint64, error) {
 	copy(buf[4:], data)
 
 	// Check if we need to rotate
-	if l.ActiveSegment.Size+int64(totalLen) > MaxSegmentSize {
+	if l.ActiveSegment.Size+int64(totalLen) > l.maxSegmentSize {
 		if err := l.rotate(); err != nil {
 			return 0, err
 		}
