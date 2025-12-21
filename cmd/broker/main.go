@@ -96,4 +96,21 @@ func main() {
 	for _, msg := range msgsB {
 		fmt.Printf("[Consumer B] Offset: %d, Payload: %s\n", msg.Offset, string(msg.Payload))
 	}
+
+	// --- Metrics ---
+	fmt.Println("\n--- Metrics ---")
+	stats, err := b.GetTopicStats(topicName)
+	if err != nil {
+		log.Printf("Failed to get stats: %v", err)
+	} else {
+		fmt.Printf("Messages In: %d\n", stats.MsgInCount)
+		fmt.Printf("Messages Out: %d\n", stats.MsgOutCount)
+		fmt.Printf("Throughput In: %.2f msg/sec\n", stats.ThroughputIn)
+		fmt.Printf("Throughput Out: %.2f msg/sec\n", stats.ThroughputOut)
+		fmt.Printf("Avg Latency: %v\n", stats.AvgLatency)
+		fmt.Println("Pending Messages per Consumer:")
+		for id, pending := range stats.PendingMessages {
+			fmt.Printf("  %s: %d\n", id, pending)
+		}
+	}
 }

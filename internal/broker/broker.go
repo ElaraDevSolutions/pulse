@@ -222,6 +222,19 @@ func (b *Broker) ReadForConsumer(topicName, consumerID string, max int) ([]*mess
 	return t.ReadForConsumer(consumerID, max)
 }
 
+// GetTopicStats returns the metrics for a specific topic.
+func (b *Broker) GetTopicStats(topicName string) (topic.Stats, error) {
+	b.mu.RLock()
+	t, exists := b.topics[topicName]
+	b.mu.RUnlock()
+
+	if !exists {
+		return topic.Stats{}, fmt.Errorf("topic %s does not exist", topicName)
+	}
+
+	return t.GetStats(), nil
+}
+
 // Close shuts down the broker and all topics.
 func (b *Broker) Close() {
 	b.mu.Lock()

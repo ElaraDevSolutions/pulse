@@ -6,11 +6,23 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"pulse/internal/logstore"
 	"pulse/pkg/message"
 )
+
+// Stats holds monitoring metrics for a topic.
+type Stats struct {
+	MsgInCount      uint64
+	MsgOutCount     uint64
+	TotalLatency    int64 // Nanoseconds
+	AvgLatency      time.Duration
+	ThroughputIn    float64 // Msgs/sec
+	ThroughputOut   float64 // Msgs/sec
+	PendingMessages map[string]uint64
+}
 
 // LogStore defines the interface for the log storage.
 type LogStore interface {
@@ -18,6 +30,7 @@ type LogStore interface {
 	Read(offset uint64, max int) ([]*message.Message, error)
 	RunRetention(maxBytes int64, maxAge time.Duration) error
 	Close() error
+	GetGlobalOffset() uint64
 }
 
 // Topic represents a message topic.
@@ -49,6 +62,12 @@ type Topic struct {
 	// consumerOffsets maps consumerID to their last committed offset.
 	consumerOffsets map[string]uint64
 	offsetsMu       sync.RWMutex
+
+	// Metrics
+	msgInCount   atomic.Uint64
+	msgOutCount  atomic.Uint64
+	totalLatency atomic.Int64 // Nanoseconds
+	startTime    time.Time
 }
 
 // NewTopic creates a new Topic and initializes its channels and goroutines.
@@ -62,6 +81,7 @@ func NewTopic(name string, fifo bool, retentionBytes int64, retentionTime time.D
 		log:             log,
 		stopChan:       make(chan struct{}),
 		consumerOffsets: make(map[string]uint64),
+		startTime:       time.Now(),
 	}
 
 	// Load existing consumer offsets from disk
@@ -168,7 +188,26 @@ func (t *Topic) ReadForConsumer(consumerID string, max int) ([]*message.Message,
 		return nil, fmt.Errorf("consumer %s not registered", consumerID)
 	}
 
-	return t.log.Read(offset, max)
+	msgs, err := t.log.Read(offset, max)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update metrics
+	if len(msgs) > 0 {
+		t.msgOutCount.Add(uint64(len(msgs)))
+		now := time.Now().UnixNano()
+		var totalLat int64
+		for _, msg := range msgs {
+			lat := now - msg.Timestamp
+			if lat > 0 {
+				totalLat += lat
+			}
+		}
+		t.totalLatency.Add(totalLat)
+	}
+
+	return msgs, nil
 }
 
 // runFIFO handles messages sequentially.
@@ -193,6 +232,7 @@ func (t *Topic) runWorker(id int) {
 
 // Publish sends a message to the topic.
 func (t *Topic) Publish(msg *message.Message) {
+	t.msgInCount.Add(1)
 	if t.FIFO {
 		t.fifoChan <- msg
 	} else {
@@ -244,5 +284,64 @@ func (t *Topic) Close() {
 
 // Read retrieves messages from the log starting at the given offset (Low-level read).
 func (t *Topic) Read(offset uint64, max int) ([]*message.Message, error) {
-	return t.log.Read(offset, max)
+	msgs, err := t.log.Read(offset, max)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update metrics
+	if len(msgs) > 0 {
+		t.msgOutCount.Add(uint64(len(msgs)))
+		now := time.Now().UnixNano()
+		var totalLat int64
+		for _, msg := range msgs {
+			lat := now - msg.Timestamp
+			if lat > 0 {
+				totalLat += lat
+			}
+		}
+		t.totalLatency.Add(totalLat)
+	}
+
+	return msgs, nil
+}
+
+// GetStats returns the current metrics for the topic.
+func (t *Topic) GetStats() Stats {
+	msgIn := t.msgInCount.Load()
+	msgOut := t.msgOutCount.Load()
+	totalLat := t.totalLatency.Load()
+	
+	duration := time.Since(t.startTime).Seconds()
+	if duration == 0 {
+		duration = 1
+	}
+
+	var avgLat time.Duration
+	if msgOut > 0 {
+		avgLat = time.Duration(totalLat / int64(msgOut))
+	}
+
+	// Calculate pending messages per consumer
+	t.offsetsMu.RLock()
+	pending := make(map[string]uint64)
+	globalOffset := t.log.GetGlobalOffset()
+	for id, offset := range t.consumerOffsets {
+		if globalOffset >= offset {
+			pending[id] = globalOffset - offset
+		} else {
+			pending[id] = 0
+		}
+	}
+	t.offsetsMu.RUnlock()
+
+	return Stats{
+		MsgInCount:      msgIn,
+		MsgOutCount:     msgOut,
+		TotalLatency:    totalLat,
+		AvgLatency:      avgLat,
+		ThroughputIn:    float64(msgIn) / duration,
+		ThroughputOut:   float64(msgOut) / duration,
+		PendingMessages: pending,
+	}
 }

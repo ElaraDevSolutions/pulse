@@ -83,6 +83,13 @@ func New(dir string, config Config) (*AppendOnlyLog, error) {
 	return l, nil
 }
 
+// GetGlobalOffset returns the next offset to be written.
+func (l *AppendOnlyLog) GetGlobalOffset() uint64 {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.GlobalOffset
+}
+
 // loadSegments scans the directory for segment files and reconstructs the in-memory state.
 func (l *AppendOnlyLog) loadSegments() error {
 	entries, err := os.ReadDir(l.Dir)
