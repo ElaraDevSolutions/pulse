@@ -262,7 +262,12 @@ func (t *Topic) retentionLoop() {
 
 // Close stops the topic and waits for all goroutines to finish.
 func (t *Topic) Close() {
-	close(t.stopChan) // Signal retention loop to stop
+	select {
+	case <-t.stopChan:
+		return // Already closed
+	default:
+		close(t.stopChan) // Signal retention loop to stop
+	}
 
 	if t.FIFO {
 		close(t.fifoChan)
