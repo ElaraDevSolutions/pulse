@@ -33,6 +33,4 @@ go.work.sum
 
 # Project specific
 data/
-pulse
-broker
 .DS_Store

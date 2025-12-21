@@ -17,6 +17,7 @@ type LogStore interface {
 	Append(msg *message.Message) (uint64, error)
 	Read(offset uint64, max int) ([]*message.Message, error)
 	RunRetention(maxBytes int64, maxAge time.Duration) error
+	Close() error
 }
 
 // Topic represents a message topic.
@@ -234,6 +235,11 @@ func (t *Topic) Close() {
 	
 	// Final save of consumers
 	t.saveConsumers()
+
+	// Close log to ensure all buffered messages are flushed
+	if err := t.log.Close(); err != nil {
+		fmt.Printf("Error closing log for topic %s: %v\n", t.Name, err)
+	}
 }
 
 // Read retrieves messages from the log starting at the given offset (Low-level read).

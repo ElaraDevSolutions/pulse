@@ -1,6 +1,7 @@
 package logstore
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -38,22 +39,45 @@ type AppendOnlyLog struct {
 	Segments      []*Segment   // List of all segments, sorted by BaseOffset
 	GlobalOffset  uint64       // The next offset to be assigned to a message
 	TotalSize     int64        // Total size of all segments in bytes
+
+	// Buffering and Flush
+	bufWriter      *bufio.Writer
+	flushInterval  time.Duration
+	flushThreshold int
+	unflushedCount int
+	stopChan       chan struct{}
+	wg             sync.WaitGroup
+}
+
+// Config holds configuration for the LogStore.
+type Config struct {
+	FlushInterval  time.Duration
+	FlushThreshold int
 }
 
 // New creates or opens an AppendOnlyLog in the specified directory.
 // It recovers the state from existing files on disk.
-func New(dir string) (*AppendOnlyLog, error) {
+func New(dir string, config Config) (*AppendOnlyLog, error) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	l := &AppendOnlyLog{
-		Dir:      dir,
-		Segments: make([]*Segment, 0),
+		Dir:            dir,
+		Segments:       make([]*Segment, 0),
+		flushInterval:  config.FlushInterval,
+		flushThreshold: config.FlushThreshold,
+		stopChan:       make(chan struct{}),
 	}
 
 	if err := l.loadSegments(); err != nil {
 		return nil, err
+	}
+
+	// Start background flusher if interval is set
+	if l.flushInterval > 0 {
+		l.wg.Add(1)
+		go l.runFlusher()
 	}
 
 	return l, nil
@@ -108,6 +132,7 @@ func (l *AppendOnlyLog) loadSegments() error {
 		}
 		lastSeg.File = file
 		l.ActiveSegment = lastSeg
+		l.bufWriter = bufio.NewWriter(file)
 
 		// Scan the last segment to find the next GlobalOffset
 		offset, err := l.findNextOffset(lastSeg)
@@ -158,12 +183,18 @@ func (l *AppendOnlyLog) findNextOffset(seg *Segment) (uint64, error) {
 
 // rotate creates a new segment file when the current one is full.
 func (l *AppendOnlyLog) rotate() error {
-	// Close the current active segment
+	// Flush and close the current active segment
 	if l.ActiveSegment != nil {
+		if l.bufWriter != nil {
+			if err := l.bufWriter.Flush(); err != nil {
+				return err
+			}
+		}
 		if err := l.ActiveSegment.File.Close(); err != nil {
 			return err
 		}
 		l.ActiveSegment.File = nil // Release file handle
+		l.bufWriter = nil
 	}
 
 	// Create new segment filename based on the current GlobalOffset
@@ -184,6 +215,7 @@ func (l *AppendOnlyLog) rotate() error {
 
 	l.ActiveSegment = newSeg
 	l.Segments = append(l.Segments, newSeg)
+	l.bufWriter = bufio.NewWriter(file)
 	return nil
 }
 
@@ -222,8 +254,12 @@ func (l *AppendOnlyLog) Append(msg *message.Message) (uint64, error) {
 		}
 	}
 
-	// Write to disk
-	n, err := l.ActiveSegment.File.Write(buf)
+	// Write to buffer
+	// Performance vs Durability:
+	// Writing to a buffer significantly improves performance by reducing syscalls (write).
+	// However, it introduces a risk of data loss if the process crashes before the buffer is flushed to disk.
+	// We mitigate this by flushing periodically (time-based) or after a certain number of messages (count-based).
+	n, err := l.bufWriter.Write(buf)
 	if err != nil {
 		return 0, err
 	}
@@ -233,7 +269,79 @@ func (l *AppendOnlyLog) Append(msg *message.Message) (uint64, error) {
 	l.TotalSize += int64(n)
 	l.GlobalOffset++
 
+	// Check flush threshold
+	l.unflushedCount++
+	if l.flushThreshold > 0 && l.unflushedCount >= l.flushThreshold {
+		if err := l.flush(); err != nil {
+			return 0, err
+		}
+	}
+
 	return msg.Offset, nil
+}
+
+// flush writes buffered data to the OS and syncs to disk.
+// Must be called with lock held.
+func (l *AppendOnlyLog) flush() error {
+	if l.bufWriter == nil {
+		return nil
+	}
+	if err := l.bufWriter.Flush(); err != nil {
+		return err
+	}
+	// Sync ensures data is written to physical disk
+	if l.ActiveSegment != nil && l.ActiveSegment.File != nil {
+		if err := l.ActiveSegment.File.Sync(); err != nil {
+			return err
+		}
+	}
+	l.unflushedCount = 0
+	return nil
+}
+
+// runFlusher periodically flushes the log.
+func (l *AppendOnlyLog) runFlusher() {
+	defer l.wg.Done()
+	ticker := time.NewTicker(l.flushInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-l.stopChan:
+			// Final flush before exit
+			l.mu.Lock()
+			l.flush()
+			l.mu.Unlock()
+			return
+		case <-ticker.C:
+			l.mu.Lock()
+			if l.unflushedCount > 0 {
+				if err := l.flush(); err != nil {
+					fmt.Printf("Error flushing log: %v\n", err)
+				}
+			}
+			l.mu.Unlock()
+		}
+	}
+}
+
+// Close stops the background flusher and closes the active segment.
+func (l *AppendOnlyLog) Close() error {
+	close(l.stopChan)
+	l.wg.Wait()
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.ActiveSegment != nil {
+		if l.bufWriter != nil {
+			l.bufWriter.Flush()
+		}
+		if err := l.ActiveSegment.File.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Read retrieves messages starting from the given offset.
