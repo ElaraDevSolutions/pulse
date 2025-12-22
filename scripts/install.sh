@@ -3,6 +3,10 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
+# Ensure we are running from the project root
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR/.."
+
 # Function to detect OS
 detect_os() {
     case "$(uname -s)" in
