@@ -104,32 +104,3 @@ if __name__ == "__main__":
     print("Starting consumers...")
     run()  # Blocks and runs all registered consumers
 ```
-
-## Development
-
-1. Clone the repository.
-2. Navigate to `sdk/python`.
-3. Create a virtual environment:
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
-4. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-5. Run tests:
-   ```bash
-   pytest
-   ```
-
-## Publishing to PyPI
-
-1. Build the package:
-   ```bash
-   python3 setup.py sdist bdist_wheel
-   ```
-2. Upload to PyPI:
-   ```bash
-   twine upload dist/*
-   ```
