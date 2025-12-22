@@ -4,14 +4,19 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"google.golang.org/grpc"
+
 	"pulse/internal/api"
 	"pulse/internal/broker"
 	"pulse/internal/config"
+	internalgrpc "pulse/internal/grpc"
+	pb "pulse/pkg/proto"
 )
 
 func main() {
@@ -19,7 +24,8 @@ func main() {
 	cfg := config.NewDefault()
 
 	// Server Flags
-	flag.IntVar(&cfg.Port, "port", cfg.Port, "Port to listen on")
+	flag.IntVar(&cfg.Port, "port", cfg.Port, "Port to listen on (HTTP)")
+	flag.IntVar(&cfg.GRPCPort, "grpc-port", cfg.GRPCPort, "Port to listen on (gRPC)")
 	flag.StringVar(&cfg.DataDir, "data-dir", cfg.DataDir, "Directory to store data")
 
 	// Topic Default Flags
@@ -40,7 +46,9 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Printf("Pulse Broker starting on port %d...\n", cfg.Port)
+	fmt.Printf("Pulse Broker starting...\n")
+	fmt.Printf("HTTP API: port %d\n", cfg.Port)
+	fmt.Printf("gRPC API: port %d\n", cfg.GRPCPort)
 	fmt.Printf("Data directory: %s\n", cfg.DataDir)
 
 	// Initialize Broker
@@ -59,10 +67,26 @@ func main() {
 		Handler: server.Routes(),
 	}
 
-	// Graceful Shutdown
+	// Start gRPC Server
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
+	if err != nil {
+		log.Fatalf("Failed to listen on gRPC port: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	pb.RegisterPulseServiceServer(grpcServer, internalgrpc.NewServer(b))
+
+	fmt.Printf("Pulse Broker starting on HTTP port %d and gRPC port %d...\n", cfg.Port, cfg.GRPCPort)
+
+	// Run servers in goroutines
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP server error: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("gRPC server error: %v", err)
 		}
 	}()
 
@@ -74,4 +98,6 @@ func main() {
 	<-stop
 
 	fmt.Println("\nShutting down...")
+	grpcServer.GracefulStop()
+	httpServer.Close()
 }

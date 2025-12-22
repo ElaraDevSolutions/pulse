@@ -1,6 +1,7 @@
 package api
 
 import (
+	_ "embed"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -9,6 +10,9 @@ import (
 
 	"pulse/internal/broker"
 )
+
+//go:embed proto/pulse.proto
+var protoFile string
 
 type Server struct {
 	Broker *broker.Broker
@@ -25,7 +29,13 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/commit", s.handleCommit)
 	mux.HandleFunc("/topic", s.handleTopic)
 	mux.HandleFunc("/stats", s.handleStats)
+	mux.HandleFunc("/proto", s.handleProto)
 	return mux
+}
+
+func (s *Server) handleProto(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(protoFile))
 }
 
 func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request) {

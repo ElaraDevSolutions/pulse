@@ -5,8 +5,9 @@ import "time"
 // Config holds all configuration parameters for the Pulse broker.
 type Config struct {
 	// Server
-	Port    int
-	DataDir string
+	Port     int
+	GRPCPort int
+	DataDir  string
 
 	// Topic Defaults (used when creating topics via API if not specified)
 	DefaultRetentionBytes int64
@@ -29,6 +30,7 @@ type Config struct {
 func NewDefault() *Config {
 	return &Config{
 		Port:                   5555,
+		GRPCPort:               5556,
 		DataDir:                "./data",
 		DefaultRetentionBytes:  1024 * 1024 * 1024, // 1GB
 		DefaultRetentionTime:   7 * 24 * time.Hour,
