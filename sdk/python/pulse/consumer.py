@@ -64,7 +64,7 @@ class Message:
     def __str__(self):
         return f"Message(offset={self.offset}, payload={self.payload})"
 
-def consumer(topic, host=None, port=None, consumer_group=None):
+def consumer(topic, host=None, port=None, consumer_group=None, auto_commit=None):
     """
     Decorator to register a function as a consumer for a topic.
     """
@@ -82,10 +82,12 @@ def consumer(topic, host=None, port=None, consumer_group=None):
             c_group = config["client"]["id"]
         
         # Determine auto_commit
-        c_auto_commit = config["client"]["auto_commit"]
-        if topic_config and "consume" in topic_config:
-            if "auto_commit" in topic_config["consume"]:
-                c_auto_commit = topic_config["consume"]["auto_commit"]
+        c_auto_commit = auto_commit
+        if c_auto_commit is None:
+            c_auto_commit = config["client"]["auto_commit"]
+            if topic_config and "consume" in topic_config:
+                if "auto_commit" in topic_config["consume"]:
+                    c_auto_commit = topic_config["consume"]["auto_commit"]
 
         _consumers.append({
             "topic": topic,

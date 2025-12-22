@@ -19,8 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	PulseService_Publish_FullMethodName = "/pulse.v1.PulseService/Publish"
-	PulseService_Consume_FullMethodName = "/pulse.v1.PulseService/Consume"
+	PulseService_Publish_FullMethodName      = "/pulse.v1.PulseService/Publish"
+	PulseService_Consume_FullMethodName      = "/pulse.v1.PulseService/Consume"
+	PulseService_CommitOffset_FullMethodName = "/pulse.v1.PulseService/CommitOffset"
+	PulseService_CreateTopic_FullMethodName  = "/pulse.v1.PulseService/CreateTopic"
 )
 
 // PulseServiceClient is the client API for PulseService service.
@@ -31,6 +33,10 @@ type PulseServiceClient interface {
 	Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*PublishResponse, error)
 	// Consume reads messages from a topic as a stream.
 	Consume(ctx context.Context, in *ConsumeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ConsumeResponse], error)
+	// CommitOffset commits the offset for a consumer group.
+	CommitOffset(ctx context.Context, in *CommitOffsetRequest, opts ...grpc.CallOption) (*CommitOffsetResponse, error)
+	// CreateTopic creates a new topic.
+	CreateTopic(ctx context.Context, in *CreateTopicRequest, opts ...grpc.CallOption) (*CreateTopicResponse, error)
 }
 
 type pulseServiceClient struct {
@@ -70,6 +76,26 @@ func (c *pulseServiceClient) Consume(ctx context.Context, in *ConsumeRequest, op
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type PulseService_ConsumeClient = grpc.ServerStreamingClient[ConsumeResponse]
 
+func (c *pulseServiceClient) CommitOffset(ctx context.Context, in *CommitOffsetRequest, opts ...grpc.CallOption) (*CommitOffsetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommitOffsetResponse)
+	err := c.cc.Invoke(ctx, PulseService_CommitOffset_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pulseServiceClient) CreateTopic(ctx context.Context, in *CreateTopicRequest, opts ...grpc.CallOption) (*CreateTopicResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateTopicResponse)
+	err := c.cc.Invoke(ctx, PulseService_CreateTopic_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PulseServiceServer is the server API for PulseService service.
 // All implementations must embed UnimplementedPulseServiceServer
 // for forward compatibility.
@@ -78,6 +104,10 @@ type PulseServiceServer interface {
 	Publish(context.Context, *PublishRequest) (*PublishResponse, error)
 	// Consume reads messages from a topic as a stream.
 	Consume(*ConsumeRequest, grpc.ServerStreamingServer[ConsumeResponse]) error
+	// CommitOffset commits the offset for a consumer group.
+	CommitOffset(context.Context, *CommitOffsetRequest) (*CommitOffsetResponse, error)
+	// CreateTopic creates a new topic.
+	CreateTopic(context.Context, *CreateTopicRequest) (*CreateTopicResponse, error)
 	mustEmbedUnimplementedPulseServiceServer()
 }
 
@@ -93,6 +123,12 @@ func (UnimplementedPulseServiceServer) Publish(context.Context, *PublishRequest)
 }
 func (UnimplementedPulseServiceServer) Consume(*ConsumeRequest, grpc.ServerStreamingServer[ConsumeResponse]) error {
 	return status.Error(codes.Unimplemented, "method Consume not implemented")
+}
+func (UnimplementedPulseServiceServer) CommitOffset(context.Context, *CommitOffsetRequest) (*CommitOffsetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CommitOffset not implemented")
+}
+func (UnimplementedPulseServiceServer) CreateTopic(context.Context, *CreateTopicRequest) (*CreateTopicResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateTopic not implemented")
 }
 func (UnimplementedPulseServiceServer) mustEmbedUnimplementedPulseServiceServer() {}
 func (UnimplementedPulseServiceServer) testEmbeddedByValue()                      {}
@@ -144,6 +180,42 @@ func _PulseService_Consume_Handler(srv interface{}, stream grpc.ServerStream) er
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type PulseService_ConsumeServer = grpc.ServerStreamingServer[ConsumeResponse]
 
+func _PulseService_CommitOffset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CommitOffsetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PulseServiceServer).CommitOffset(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PulseService_CommitOffset_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PulseServiceServer).CommitOffset(ctx, req.(*CommitOffsetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PulseService_CreateTopic_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTopicRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PulseServiceServer).CreateTopic(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PulseService_CreateTopic_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PulseServiceServer).CreateTopic(ctx, req.(*CreateTopicRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PulseService_ServiceDesc is the grpc.ServiceDesc for PulseService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -154,6 +226,14 @@ var PulseService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Publish",
 			Handler:    _PulseService_Publish_Handler,
+		},
+		{
+			MethodName: "CommitOffset",
+			Handler:    _PulseService_CommitOffset_Handler,
+		},
+		{
+			MethodName: "CreateTopic",
+			Handler:    _PulseService_CreateTopic_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

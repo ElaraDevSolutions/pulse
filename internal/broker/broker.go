@@ -166,7 +166,7 @@ func (b *Broker) Produce(topicName string, payload []byte) error {
 	b.mu.RUnlock()
 
 	if !exists {
-		return fmt.Errorf("topic %s does not exist", topicName)
+		return fmt.Errorf("topic '%s' does not exist", topicName)
 	}
 
 	// Create message with temporary offset (will be assigned by LogStore)
@@ -201,6 +201,19 @@ func (b *Broker) RegisterConsumer(topicName, consumerID string) error {
 
 	t.RegisterConsumer(consumerID)
 	return nil
+}
+
+// GetConsumerOffset returns the current committed offset for a consumer.
+func (b *Broker) GetConsumerOffset(topicName, consumerID string) (uint64, error) {
+	b.mu.RLock()
+	t, exists := b.topics[topicName]
+	b.mu.RUnlock()
+
+	if !exists {
+		return 0, fmt.Errorf("topic %s does not exist", topicName)
+	}
+
+	return t.GetConsumerOffset(consumerID)
 }
 
 // CommitOffset updates the offset for a consumer.

@@ -44,6 +44,16 @@ class PulseServiceStub(object):
                 request_serializer=pulse__pb2.ConsumeRequest.SerializeToString,
                 response_deserializer=pulse__pb2.ConsumeResponse.FromString,
                 _registered_method=True)
+        self.CommitOffset = channel.unary_unary(
+                '/pulse.v1.PulseService/CommitOffset',
+                request_serializer=pulse__pb2.CommitOffsetRequest.SerializeToString,
+                response_deserializer=pulse__pb2.CommitOffsetResponse.FromString,
+                _registered_method=True)
+        self.CreateTopic = channel.unary_unary(
+                '/pulse.v1.PulseService/CreateTopic',
+                request_serializer=pulse__pb2.CreateTopicRequest.SerializeToString,
+                response_deserializer=pulse__pb2.CreateTopicResponse.FromString,
+                _registered_method=True)
 
 
 class PulseServiceServicer(object):
@@ -63,6 +73,20 @@ class PulseServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CommitOffset(self, request, context):
+        """CommitOffset commits the offset for a consumer group.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateTopic(self, request, context):
+        """CreateTopic creates a new topic.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_PulseServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -75,6 +99,16 @@ def add_PulseServiceServicer_to_server(servicer, server):
                     servicer.Consume,
                     request_deserializer=pulse__pb2.ConsumeRequest.FromString,
                     response_serializer=pulse__pb2.ConsumeResponse.SerializeToString,
+            ),
+            'CommitOffset': grpc.unary_unary_rpc_method_handler(
+                    servicer.CommitOffset,
+                    request_deserializer=pulse__pb2.CommitOffsetRequest.FromString,
+                    response_serializer=pulse__pb2.CommitOffsetResponse.SerializeToString,
+            ),
+            'CreateTopic': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateTopic,
+                    request_deserializer=pulse__pb2.CreateTopicRequest.FromString,
+                    response_serializer=pulse__pb2.CreateTopicResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -131,6 +165,60 @@ class PulseService(object):
             '/pulse.v1.PulseService/Consume',
             pulse__pb2.ConsumeRequest.SerializeToString,
             pulse__pb2.ConsumeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CommitOffset(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/pulse.v1.PulseService/CommitOffset',
+            pulse__pb2.CommitOffsetRequest.SerializeToString,
+            pulse__pb2.CommitOffsetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateTopic(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/pulse.v1.PulseService/CreateTopic',
+            pulse__pb2.CreateTopicRequest.SerializeToString,
+            pulse__pb2.CreateTopicResponse.FromString,
             options,
             channel_credentials,
             insecure,

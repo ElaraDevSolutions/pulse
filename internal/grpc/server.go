@@ -58,20 +58,13 @@ func (s *Server) Consume(req *pb.ConsumeRequest, stream pb.PulseService_ConsumeS
 		currentOffset = req.Offset
 	} else if req.ConsumerName != "" {
 		// Get last committed offset
-		// We need a method in Broker to get the current offset for a consumer without reading
-		// For now, let's assume 0 if not provided, or we'd need to extend Broker.
-		// Actually, RegisterConsumer initializes it to 0 if new.
-		// If existing, we want to resume.
-		// But we don't have a public API to "GetConsumerOffset" yet.
-		// Let's default to 0 for now, or the client must provide it.
-		// Ideally, we should look it up.
-		// Let's assume the client sends 0 to mean "start from where I left off".
-		// But we can't easily look it up without extending the Broker API.
-		// Let's stick to: if 0, start from 0.
-		currentOffset = 0
-
-		// Optimization: If we could read the stored offset, that would be better.
-		// But let's proceed with 0 or explicit offset for this iteration.
+		offset, err := s.Broker.GetConsumerOffset(req.Topic, req.ConsumerName)
+		if err != nil {
+			// Should not happen as we just registered it
+			currentOffset = 0
+		} else {
+			currentOffset = offset
+		}
 	}
 
 	// Streaming Loop
@@ -107,4 +100,55 @@ func (s *Server) Consume(req *pb.ConsumeRequest, stream pb.PulseService_ConsumeS
 			currentOffset = msg.Offset + 1
 		}
 	}
+}
+
+func (s *Server) CommitOffset(ctx context.Context, req *pb.CommitOffsetRequest) (*pb.CommitOffsetResponse, error) {
+	if req.Topic == "" || req.ConsumerName == "" {
+		return nil, status.Error(codes.InvalidArgument, "topic and consumer_name are required")
+	}
+
+	err := s.Broker.CommitOffset(req.Topic, req.ConsumerName, req.Offset)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to commit offset: %v", err)
+	}
+
+	return &pb.CommitOffsetResponse{Success: true}, nil
+}
+
+func (s *Server) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb.CreateTopicResponse, error) {
+	if req.Topic == "" {
+		return nil, status.Error(codes.InvalidArgument, "topic is required")
+	}
+
+	// Use defaults if not provided
+	retentionBytes := req.RetentionBytes
+	if retentionBytes == 0 {
+		retentionBytes = s.Broker.Config.DefaultRetentionBytes
+	}
+
+	retentionTime := time.Duration(req.RetentionTime)
+	if retentionTime == 0 {
+		retentionTime = s.Broker.Config.DefaultRetentionTime
+	}
+
+	// Use broker defaults for flush/segment settings as they are not in the request yet
+	flushThreshold := s.Broker.Config.DefaultFlushThreshold
+	flushInterval := s.Broker.Config.DefaultFlushInterval
+	segmentSize := s.Broker.Config.DefaultSegmentSize
+
+	err := s.Broker.CreateTopic(
+		req.Topic,
+		req.Fifo,
+		retentionBytes,
+		retentionTime,
+		flushThreshold,
+		flushInterval,
+		segmentSize,
+	)
+
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to create topic: %v", err)
+	}
+
+	return &pb.CreateTopicResponse{Success: true}, nil
 }

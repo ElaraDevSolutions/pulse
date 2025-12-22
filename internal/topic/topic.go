@@ -147,6 +147,18 @@ func (t *Topic) saveConsumers() error {
 	return os.WriteFile(path, data, 0644)
 }
 
+// GetConsumerOffset returns the current committed offset for a consumer.
+func (t *Topic) GetConsumerOffset(consumerID string) (uint64, error) {
+	t.offsetsMu.RLock()
+	defer t.offsetsMu.RUnlock()
+
+	offset, exists := t.consumerOffsets[consumerID]
+	if !exists {
+		return 0, fmt.Errorf("consumer %s not registered", consumerID)
+	}
+	return offset, nil
+}
+
 // RegisterConsumer initializes a consumer with offset 0 if it doesn't exist.
 func (t *Topic) RegisterConsumer(consumerID string) {
 	t.offsetsMu.Lock()

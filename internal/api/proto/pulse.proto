@@ -10,6 +10,12 @@ service PulseService {
 
   // Consume reads messages from a topic as a stream.
   rpc Consume(ConsumeRequest) returns (stream ConsumeResponse);
+
+  // CommitOffset commits the offset for a consumer group.
+  rpc CommitOffset(CommitOffsetRequest) returns (CommitOffsetResponse);
+
+  // CreateTopic creates a new topic.
+  rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse);
 }
 
 message PublishRequest {
@@ -32,4 +38,25 @@ message ConsumeResponse {
   uint64 offset = 1;
   int64 timestamp = 2;
   bytes payload = 3;
+}
+
+message CommitOffsetRequest {
+  string topic = 1;
+  string consumer_name = 2;
+  uint64 offset = 3;
+}
+
+message CommitOffsetResponse {
+  bool success = 1;
+}
+
+message CreateTopicRequest {
+  string topic = 1;
+  bool fifo = 2;
+  int64 retention_bytes = 3;
+  int64 retention_time = 4; // Nanoseconds
+}
+
+message CreateTopicResponse {
+  bool success = 1;
 }
