@@ -3,11 +3,15 @@ package broker
 import (
 	"testing"
 	"time"
+
+	"pulse/internal/config"
 )
 
 func TestBroker_CreateTopic(t *testing.T) {
 	dir := t.TempDir()
-	b, err := New(dir)
+	cfg := config.NewDefault()
+	cfg.DataDir = dir
+	b, err := New(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create broker: %v", err)
 	}
@@ -27,7 +31,9 @@ func TestBroker_CreateTopic(t *testing.T) {
 
 func TestBroker_ProduceConsume(t *testing.T) {
 	dir := t.TempDir()
-	b, _ := New(dir)
+	cfg := config.NewDefault()
+	cfg.DataDir = dir
+	b, _ := New(cfg)
 	defer b.Close()
 
 	b.CreateTopic("t1", true, 0, 0, 1, time.Millisecond, 1024)
@@ -55,16 +61,20 @@ func TestBroker_ProduceConsume(t *testing.T) {
 
 func TestBroker_Persistence(t *testing.T) {
 	dir := t.TempDir()
-	
+
 	// 1. Setup
-	b1, _ := New(dir)
+	cfg1 := config.NewDefault()
+	cfg1.DataDir = dir
+	b1, _ := New(cfg1)
 	b1.CreateTopic("persistent", true, 100, 0, 1, time.Second, 1024)
 	b1.Produce("persistent", []byte("data"))
 	time.Sleep(10 * time.Millisecond) // Wait for flush
 	b1.Close()
 
 	// 2. Restore
-	b2, err := New(dir)
+	cfg2 := config.NewDefault()
+	cfg2.DataDir = dir
+	b2, err := New(cfg2)
 	if err != nil {
 		t.Fatalf("Failed to restore broker: %v", err)
 	}

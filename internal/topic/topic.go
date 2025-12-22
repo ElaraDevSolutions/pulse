@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"pulse/internal/config"
 	"pulse/internal/logstore"
 	"pulse/pkg/message"
 )
@@ -68,20 +69,23 @@ type Topic struct {
 	msgOutCount  atomic.Uint64
 	totalLatency atomic.Int64 // Nanoseconds
 	startTime    time.Time
+
+	retentionCheckInterval time.Duration
 }
 
 // NewTopic creates a new Topic and initializes its channels and goroutines.
-func NewTopic(name string, fifo bool, retentionBytes int64, retentionTime time.Duration, log *logstore.AppendOnlyLog, dir string) *Topic {
+func NewTopic(name string, fifo bool, retentionBytes int64, retentionTime time.Duration, log *logstore.AppendOnlyLog, dir string, cfg *config.Config) *Topic {
 	t := &Topic{
-		Name:            name,
-		FIFO:            fifo,
-		RetentionBytes:  retentionBytes,
-		RetentionTime:   retentionTime,
-		Dir:             dir,
-		log:             log,
-		stopChan:       make(chan struct{}),
-		consumerOffsets: make(map[string]uint64),
-		startTime:       time.Now(),
+		Name:                   name,
+		FIFO:                   fifo,
+		RetentionBytes:         retentionBytes,
+		RetentionTime:          retentionTime,
+		Dir:                    dir,
+		log:                    log,
+		stopChan:               make(chan struct{}),
+		consumerOffsets:        make(map[string]uint64),
+		startTime:              time.Now(),
+		retentionCheckInterval: cfg.RetentionCheckInterval,
 	}
 
 	// Load existing consumer offsets from disk
@@ -89,16 +93,15 @@ func NewTopic(name string, fifo bool, retentionBytes int64, retentionTime time.D
 
 	if fifo {
 		// Single channel and single goroutine for FIFO
-		t.fifoChan = make(chan *message.Message, 100)
+		t.fifoChan = make(chan *message.Message, cfg.FIFOChanSize)
 		t.wg.Add(1)
 		go t.runFIFO()
 	} else {
 		// Multiple channels/goroutines for non-FIFO (parallel writes)
-		// For MVP, let's create a fixed number of workers, e.g., 5
-		numWorkers := 5
+		numWorkers := cfg.NumWorkers
 		t.workerChans = make([]chan *message.Message, numWorkers)
 		for i := 0; i < numWorkers; i++ {
-			t.workerChans[i] = make(chan *message.Message, 100)
+			t.workerChans[i] = make(chan *message.Message, cfg.WorkerChanSize)
 			t.wg.Add(1)
 			go t.runWorker(i)
 		}
@@ -154,7 +157,7 @@ func (t *Topic) RegisterConsumer(consumerID string) {
 		// We should save immediately to persist the registration
 		// In a high-throughput scenario, we might want to batch saves or save async.
 		// For MVP, sync save is fine.
-		
+
 		// Internal save logic to avoid deadlock
 		data, _ := json.MarshalIndent(t.consumerOffsets, "", "  ")
 		path := filepath.Join(t.Dir, "consumers.json")
@@ -168,7 +171,7 @@ func (t *Topic) CommitOffset(consumerID string, offset uint64) error {
 	defer t.offsetsMu.Unlock()
 
 	t.consumerOffsets[consumerID] = offset
-	
+
 	// Persist to disk
 	data, err := json.MarshalIndent(t.consumerOffsets, "", "  ")
 	if err != nil {
@@ -245,7 +248,7 @@ func (t *Topic) Publish(msg *message.Message) {
 // retentionLoop periodically checks for expired segments.
 func (t *Topic) retentionLoop() {
 	defer t.wg.Done()
-	ticker := time.NewTicker(1 * time.Minute) // Check every minute
+	ticker := time.NewTicker(t.retentionCheckInterval) // Check based on config
 	defer ticker.Stop()
 
 	for {
@@ -277,7 +280,7 @@ func (t *Topic) Close() {
 		}
 	}
 	t.wg.Wait()
-	
+
 	// Final save of consumers
 	t.saveConsumers()
 
@@ -316,7 +319,7 @@ func (t *Topic) GetStats() Stats {
 	msgIn := t.msgInCount.Load()
 	msgOut := t.msgOutCount.Load()
 	totalLat := t.totalLatency.Load()
-	
+
 	duration := time.Since(t.startTime).Seconds()
 	if duration == 0 {
 		duration = 1

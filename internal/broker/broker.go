@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"pulse/internal/config"
 	"pulse/internal/logstore"
 	"pulse/internal/topic"
 	"pulse/pkg/message"
@@ -29,17 +30,19 @@ type Broker struct {
 	DataDir string
 	topics  map[string]*topic.Topic
 	mu      sync.RWMutex
+	Config  *config.Config
 }
 
 // New creates a new Broker instance.
-func New(dataDir string) (*Broker, error) {
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
+func New(cfg *config.Config) (*Broker, error) {
+	if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create data directory: %w", err)
 	}
 
 	b := &Broker{
-		DataDir: dataDir,
+		DataDir: cfg.DataDir,
 		topics:  make(map[string]*topic.Topic),
+		Config:  cfg,
 	}
 
 	if err := b.restoreTopics(); err != nil {
@@ -96,7 +99,7 @@ func (b *Broker) restoreTopics() error {
 		}
 
 		// Create Topic
-		t := topic.NewTopic(config.Name, config.FIFO, config.RetentionBytes, time.Duration(config.RetentionTime), log, logDir)
+		t := topic.NewTopic(config.Name, config.FIFO, config.RetentionBytes, time.Duration(config.RetentionTime), log, logDir, b.Config)
 		b.topics[config.Name] = t
 		fmt.Printf("Restored topic: %s (FIFO: %v)\n", config.Name, config.FIFO)
 	}
@@ -150,7 +153,7 @@ func (b *Broker) CreateTopic(name string, fifo bool, retentionBytes int64, reten
 	}
 
 	// Create Topic
-	t := topic.NewTopic(name, fifo, retentionBytes, retentionTime, log, topicDir)
+	t := topic.NewTopic(name, fifo, retentionBytes, retentionTime, log, topicDir, b.Config)
 	b.topics[name] = t
 
 	return nil
@@ -168,7 +171,7 @@ func (b *Broker) Produce(topicName string, payload []byte) error {
 
 	// Create message with temporary offset (will be assigned by LogStore)
 	msg := message.NewMessage(0, payload)
-	
+
 	t.Publish(&msg)
 	return nil
 }

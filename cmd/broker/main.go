@@ -11,24 +11,40 @@ import (
 
 	"pulse/internal/api"
 	"pulse/internal/broker"
+	"pulse/internal/config"
 )
 
 func main() {
-	// Configuration Flags
-	port := flag.Int("port", 5555, "Port to listen on")
-	dataDir := flag.String("data-dir", "./data", "Directory to store data")
-	
-	// Default Topic Configs (used when creating topics via API if not specified, 
-	// though currently API handles defaults. These could be used to override API defaults if we wanted)
-	// For now, we just expose them as info or use them if we implemented a "default topic config" feature.
-	
+	// Initialize Config with defaults
+	cfg := config.NewDefault()
+
+	// Server Flags
+	flag.IntVar(&cfg.Port, "port", cfg.Port, "Port to listen on")
+	flag.StringVar(&cfg.DataDir, "data-dir", cfg.DataDir, "Directory to store data")
+
+	// Topic Default Flags
+	flag.Int64Var(&cfg.DefaultRetentionBytes, "default-retention-bytes", cfg.DefaultRetentionBytes, "Default retention in bytes")
+	flag.DurationVar(&cfg.DefaultRetentionTime, "default-retention-time", cfg.DefaultRetentionTime, "Default retention time")
+	flag.Int64Var(&cfg.DefaultSegmentSize, "default-segment-size", cfg.DefaultSegmentSize, "Default segment size in bytes")
+	flag.IntVar(&cfg.DefaultFlushThreshold, "default-flush-threshold", cfg.DefaultFlushThreshold, "Default flush threshold (messages)")
+	flag.DurationVar(&cfg.DefaultFlushInterval, "default-flush-interval", cfg.DefaultFlushInterval, "Default flush interval")
+
+	// Performance Flags
+	flag.IntVar(&cfg.NumWorkers, "num-workers", cfg.NumWorkers, "Number of background workers for non-FIFO topics")
+	flag.IntVar(&cfg.FIFOChanSize, "fifo-chan-size", cfg.FIFOChanSize, "Buffer size for FIFO topic channels")
+	flag.IntVar(&cfg.WorkerChanSize, "worker-chan-size", cfg.WorkerChanSize, "Buffer size for worker channels")
+	flag.DurationVar(&cfg.RetentionCheckInterval, "retention-check-interval", cfg.RetentionCheckInterval, "How often to check for expired segments")
+
+	// API Flags
+	flag.IntVar(&cfg.DefaultMaxConsume, "default-max-consume", cfg.DefaultMaxConsume, "Default number of messages to return if 'max' is not specified")
+
 	flag.Parse()
 
-	fmt.Printf("Pulse Broker starting on port %d...\n", *port)
-	fmt.Printf("Data directory: %s\n", *dataDir)
+	fmt.Printf("Pulse Broker starting on port %d...\n", cfg.Port)
+	fmt.Printf("Data directory: %s\n", cfg.DataDir)
 
 	// Initialize Broker
-	b, err := broker.New(*dataDir)
+	b, err := broker.New(cfg)
 	if err != nil {
 		log.Fatalf("Failed to init broker: %v", err)
 	}
@@ -39,7 +55,7 @@ func main() {
 
 	// Start HTTP Server
 	httpServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", *port),
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: server.Routes(),
 	}
 

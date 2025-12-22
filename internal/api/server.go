@@ -70,7 +70,7 @@ func (s *Server) handleConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	max := 10
+	max := s.Broker.Config.DefaultMaxConsume
 	if maxStr != "" {
 		if m, err := strconv.Atoi(maxStr); err == nil {
 			max = m
@@ -160,19 +160,19 @@ func (s *Server) handleTopic(w http.ResponseWriter, r *http.Request) {
 
 	// Use defaults if 0
 	if req.RetentionBytes == 0 {
-		req.RetentionBytes = 1024 * 1024 * 1024 // 1GB
+		req.RetentionBytes = s.Broker.Config.DefaultRetentionBytes
 	}
 	if req.RetentionTime == 0 {
-		req.RetentionTime = int64(7 * 24 * time.Hour)
+		req.RetentionTime = int64(s.Broker.Config.DefaultRetentionTime)
 	}
 	if req.SegmentSize == 0 {
-		req.SegmentSize = 128 * 1024 * 1024 // 128MB
+		req.SegmentSize = s.Broker.Config.DefaultSegmentSize
 	}
 	if req.FlushThreshold == 0 {
-		req.FlushThreshold = 100
+		req.FlushThreshold = s.Broker.Config.DefaultFlushThreshold
 	}
 	if req.FlushInterval == 0 {
-		req.FlushInterval = int64(1 * time.Second)
+		req.FlushInterval = int64(s.Broker.Config.DefaultFlushInterval)
 	}
 
 	err := s.Broker.CreateTopic(req.Name, req.FIFO, req.RetentionBytes, time.Duration(req.RetentionTime), req.FlushThreshold, time.Duration(req.FlushInterval), req.SegmentSize)

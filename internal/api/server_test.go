@@ -9,11 +9,14 @@ import (
 	"time"
 
 	"pulse/internal/broker"
+	"pulse/internal/config"
 )
 
 func setupServer(t *testing.T) (*Server, string) {
 	dir := t.TempDir()
-	b, err := broker.New(dir)
+	cfg := config.NewDefault()
+	cfg.DataDir = dir
+	b, err := broker.New(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create broker: %v", err)
 	}

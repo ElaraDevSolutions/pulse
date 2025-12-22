@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"pulse/internal/config"
 	"pulse/internal/logstore"
 	"pulse/pkg/message"
 )
@@ -53,10 +54,8 @@ func TestTopic_FIFO(t *testing.T) {
 		MaxSegmentSize: 1024 * 1024,
 	}
 	log, _ := logstore.New(dir, logConfig)
-	
-	topic := NewTopic("test-fifo", true, 0, 0, log, dir)
-	defer topic.Close()
 
+	topic := NewTopic("test-fifo", true, 0, 0, log, dir, config.NewDefault())
 	// Publish messages
 	count := 100
 	for i := 0; i < count; i++ {
@@ -88,10 +87,8 @@ func TestTopic_Consumers(t *testing.T) {
 	dir := t.TempDir()
 	logConfig := logstore.Config{FlushThreshold: 1}
 	log, _ := logstore.New(dir, logConfig)
-	
-	topic := NewTopic("test-consumers", true, 0, 0, log, dir)
-	defer topic.Close()
 
+	topic := NewTopic("test-consumers", true, 0, 0, log, dir, config.NewDefault())
 	// Register consumer
 	cid := "c1"
 	topic.RegisterConsumer(cid)
@@ -116,10 +113,10 @@ func TestTopic_Consumers(t *testing.T) {
 	// We can check internal state or reload topic
 	// Let's reload topic
 	topic.Close()
-	
+
 	// Reopen
 	log2, _ := logstore.New(dir, logConfig)
-	topic2 := NewTopic("test-consumers", true, 0, 0, log2, dir)
+	topic2 := NewTopic("test-consumers", true, 0, 0, log2, dir, config.NewDefault())
 	defer topic2.Close()
 
 	// Check stats or read again
@@ -136,10 +133,8 @@ func TestTopic_Metrics(t *testing.T) {
 	dir := t.TempDir()
 	logConfig := logstore.Config{FlushThreshold: 1}
 	log, _ := logstore.New(dir, logConfig)
-	
-	topic := NewTopic("test-metrics", true, 0, 0, log, dir)
-	defer topic.Close()
 
+	topic := NewTopic("test-metrics", true, 0, 0, log, dir, config.NewDefault())
 	topic.Publish(&message.Message{Payload: []byte("m1")})
 	time.Sleep(10 * time.Millisecond)
 
