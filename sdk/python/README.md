@@ -44,6 +44,13 @@ topics:
       fifo: true
     consume:
       auto_commit: false  # Manual commit required
+
+  - name: "logs"
+    create_if_missing: true
+    config:
+      fifo: false
+    consume:
+      auto_commit: true
 ```
 
 ## Usage

@@ -12,6 +12,27 @@ class Producer:
         
         self.channel = grpc.insecure_channel(self.address)
         self.stub = pulse_pb2_grpc.PulseServiceStub(self.channel)
+        
+        self._setup_topics(config)
+
+    def _setup_topics(self, config):
+        for topic_cfg in config.get("topics", []):
+            if topic_cfg.get("create_if_missing", False):
+                name = topic_cfg["name"]
+                t_config = topic_cfg.get("config", {})
+                fifo = t_config.get("fifo", False)
+                retention_bytes = t_config.get("retention_bytes", 0)
+                
+                req = pulse_pb2.CreateTopicRequest(
+                    topic=name,
+                    fifo=fifo,
+                    retention_bytes=retention_bytes
+                )
+                try:
+                    self.stub.CreateTopic(req)
+                except grpc.RpcError:
+                    # Ignore errors (e.g. topic already exists)
+                    pass
 
     def send(self, topic, payload):
         """
