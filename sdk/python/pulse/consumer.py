@@ -36,7 +36,7 @@ def commit():
         ctx.stub.CommitOffset(pulse_pb2.CommitOffsetRequest(
             topic=ctx.topic,
             consumer_name=ctx.consumer_group,
-            offset=ctx.offset
+            offset=ctx.offset + 1
         ))
         ctx.committed = True
     except grpc.RpcError as e:
