@@ -59,7 +59,7 @@ func TestTopic_FIFO(t *testing.T) {
 	// Publish messages
 	count := 100
 	for i := 0; i < count; i++ {
-		msg := message.NewMessage(0, []byte(fmt.Sprintf("msg-%d", i)))
+		msg := message.NewMessage(0, []byte(fmt.Sprintf("msg-%d", i)), nil)
 		topic.Publish(&msg)
 	}
 

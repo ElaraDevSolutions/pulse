@@ -8,17 +8,19 @@ import (
 
 // Message represents a single unit of data in the broker.
 type Message struct {
-	Offset    uint64 `msgpack:"offset"`
-	Timestamp int64  `msgpack:"timestamp"`
-	Payload   []byte `msgpack:"payload"`
+	Offset    uint64            `msgpack:"offset"`
+	Timestamp int64             `msgpack:"timestamp"`
+	Payload   []byte            `msgpack:"payload"`
+	Headers   map[string]string `msgpack:"headers"`
 }
 
 // NewMessage creates a new Message with the current timestamp.
-func NewMessage(offset uint64, payload []byte) Message {
+func NewMessage(offset uint64, payload []byte, headers map[string]string) Message {
 	return Message{
 		Offset:    offset,
 		Timestamp: time.Now().UnixNano(),
 		Payload:   payload,
+		Headers:   headers,
 	}
 }
 

@@ -26,7 +26,7 @@ func TestLogStore_AppendAndRead(t *testing.T) {
 	// Append messages
 	count := 10
 	for i := 0; i < count; i++ {
-		msg := message.NewMessage(0, []byte(fmt.Sprintf("msg-%d", i)))
+		msg := message.NewMessage(0, []byte(fmt.Sprintf("msg-%d", i)), nil)
 		if _, err := l.Append(&msg); err != nil {
 			t.Fatalf("Failed to append message %d: %v", i, err)
 		}
@@ -72,7 +72,7 @@ func TestLogStore_Rotation(t *testing.T) {
 	// Each message has overhead (header + msgpack), so 100 bytes is small.
 	payload := make([]byte, 50)
 	for i := 0; i < 5; i++ {
-		msg := message.NewMessage(0, payload)
+		msg := message.NewMessage(0, payload, nil)
 		if _, err := l.Append(&msg); err != nil {
 			t.Fatalf("Failed to append: %v", err)
 		}
@@ -122,7 +122,7 @@ func TestLogStore_Retention_Size(t *testing.T) {
 	// Produce data to create multiple segments
 	payload := make([]byte, 50)
 	for i := 0; i < 10; i++ {
-		msg := message.NewMessage(0, payload)
+		msg := message.NewMessage(0, payload, nil)
 		l.Append(&msg)
 	}
 
@@ -138,13 +138,13 @@ func TestLogStore_Retention_Size(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read dir: %v", err)
 	}
-	
+
 	// Should have fewer segments now
 	// Note: Active segment is never deleted.
 	if len(entries) >= 5 { // We expected ~5 segments initially (10 msgs / 2 per seg)
 		t.Logf("Segments remaining: %d", len(entries))
 	}
-	
+
 	// Verify we can't read the deleted messages (offset 0)
 	// Depending on implementation, Read might return empty or error, or start from available.
 	// Our Read implementation searches for segment. If segment 0 is gone, it might start from next.
@@ -167,7 +167,7 @@ func TestLogStore_Recovery(t *testing.T) {
 
 	// 1. Write data
 	l1, _ := New(dir, config)
-	msg := message.NewMessage(0, []byte("persist-me"))
+	msg := message.NewMessage(0, []byte("persist-me"), nil)
 	l1.Append(&msg)
 	l1.Close()
 
@@ -202,21 +202,21 @@ func TestLogStore_Flush(t *testing.T) {
 	}
 
 	l, _ := New(dir, config)
-	
-	msg := message.NewMessage(0, []byte("buffered"))
+
+	msg := message.NewMessage(0, []byte("buffered"), nil)
 	l.Append(&msg)
 
 	// Check file size immediately - might be 0 if buffered
 	// Note: This is flaky if OS flushes automatically, but we check logic.
 	// Actually, we can't easily check OS buffer without reading file from another process.
 	// But we can check if Close() flushes.
-	
+
 	l.Close()
 
 	// Reopen and check
 	l2, _ := New(dir, config)
 	defer l2.Close()
-	
+
 	msgs, _ := l2.Read(0, 1)
 	if len(msgs) != 1 {
 		t.Error("Message was not flushed on close")

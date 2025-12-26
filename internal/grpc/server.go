@@ -31,7 +31,7 @@ func (s *Server) Publish(ctx context.Context, req *pb.PublishRequest) (*pb.Publi
 	// It returns error.
 	// For now, we return a success response with 0 offset (or we could update Produce to return it).
 
-	err := s.Broker.Produce(req.Topic, req.Payload)
+	err := s.Broker.Produce(req.Topic, req.Payload, req.Headers)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to produce message: %v", err)
 	}
@@ -93,6 +93,7 @@ func (s *Server) Consume(req *pb.ConsumeRequest, stream pb.PulseService_ConsumeS
 				Offset:    msg.Offset,
 				Timestamp: msg.Timestamp,
 				Payload:   msg.Payload,
+				Headers:   msg.Headers,
 			}
 			if err := stream.Send(resp); err != nil {
 				return err

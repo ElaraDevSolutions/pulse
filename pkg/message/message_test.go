@@ -7,7 +7,7 @@ import (
 
 func TestMessage_SerializeDeserialize(t *testing.T) {
 	payload := []byte("test-payload")
-	msg := NewMessage(123, payload)
+	msg := NewMessage(123, payload, nil)
 
 	// Serialize
 	data, err := msg.Serialize()
@@ -27,7 +27,7 @@ func TestMessage_SerializeDeserialize(t *testing.T) {
 	if !bytes.Equal(msg2.Payload, msg.Payload) {
 		t.Errorf("Payload mismatch")
 	}
-	// Timestamp might differ slightly due to serialization precision if not handled, 
+	// Timestamp might differ slightly due to serialization precision if not handled,
 	// but msgpack usually handles int64 fine.
 	if msg2.Timestamp != msg.Timestamp {
 		t.Errorf("Timestamp mismatch")

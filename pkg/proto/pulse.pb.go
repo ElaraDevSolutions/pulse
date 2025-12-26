@@ -25,6 +25,7 @@ type PublishRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Topic         string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
 	Payload       []byte                 `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+	Headers       map[string]string      `protobuf:"bytes,3,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -69,6 +70,13 @@ func (x *PublishRequest) GetTopic() string {
 func (x *PublishRequest) GetPayload() []byte {
 	if x != nil {
 		return x.Payload
+	}
+	return nil
+}
+
+func (x *PublishRequest) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
 	}
 	return nil
 }
@@ -190,6 +198,7 @@ type ConsumeResponse struct {
 	Offset        uint64                 `protobuf:"varint,1,opt,name=offset,proto3" json:"offset,omitempty"`
 	Timestamp     int64                  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	Payload       []byte                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Headers       map[string]string      `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -241,6 +250,13 @@ func (x *ConsumeResponse) GetTimestamp() int64 {
 func (x *ConsumeResponse) GetPayload() []byte {
 	if x != nil {
 		return x.Payload
+	}
+	return nil
+}
+
+func (x *ConsumeResponse) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
 	}
 	return nil
 }
@@ -465,21 +481,29 @@ var File_pulse_proto protoreflect.FileDescriptor
 
 const file_pulse_proto_rawDesc = "" +
 	"\n" +
-	"\vpulse.proto\x12\bpulse.v1\"@\n" +
+	"\vpulse.proto\x12\bpulse.v1\"\xbd\x01\n" +
 	"\x0ePublishRequest\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12\x18\n" +
-	"\apayload\x18\x02 \x01(\fR\apayload\"9\n" +
+	"\apayload\x18\x02 \x01(\fR\apayload\x12?\n" +
+	"\aheaders\x18\x03 \x03(\v2%.pulse.v1.PublishRequest.HeadersEntryR\aheaders\x1a:\n" +
+	"\fHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"9\n" +
 	"\x0fPublishResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06offset\x18\x02 \x01(\x04R\x06offset\"c\n" +
 	"\x0eConsumeRequest\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12#\n" +
 	"\rconsumer_name\x18\x02 \x01(\tR\fconsumerName\x12\x16\n" +
-	"\x06offset\x18\x03 \x01(\x04R\x06offset\"a\n" +
+	"\x06offset\x18\x03 \x01(\x04R\x06offset\"\xdf\x01\n" +
 	"\x0fConsumeResponse\x12\x16\n" +
 	"\x06offset\x18\x01 \x01(\x04R\x06offset\x12\x1c\n" +
 	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x12\x18\n" +
-	"\apayload\x18\x03 \x01(\fR\apayload\"h\n" +
+	"\apayload\x18\x03 \x01(\fR\apayload\x12@\n" +
+	"\aheaders\x18\x04 \x03(\v2&.pulse.v1.ConsumeResponse.HeadersEntryR\aheaders\x1a:\n" +
+	"\fHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"h\n" +
 	"\x13CommitOffsetRequest\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12#\n" +
 	"\rconsumer_name\x18\x02 \x01(\tR\fconsumerName\x12\x16\n" +
@@ -511,7 +535,7 @@ func file_pulse_proto_rawDescGZIP() []byte {
 	return file_pulse_proto_rawDescData
 }
 
-var file_pulse_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_pulse_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_pulse_proto_goTypes = []any{
 	(*PublishRequest)(nil),       // 0: pulse.v1.PublishRequest
 	(*PublishResponse)(nil),      // 1: pulse.v1.PublishResponse
@@ -521,21 +545,25 @@ var file_pulse_proto_goTypes = []any{
 	(*CommitOffsetResponse)(nil), // 5: pulse.v1.CommitOffsetResponse
 	(*CreateTopicRequest)(nil),   // 6: pulse.v1.CreateTopicRequest
 	(*CreateTopicResponse)(nil),  // 7: pulse.v1.CreateTopicResponse
+	nil,                          // 8: pulse.v1.PublishRequest.HeadersEntry
+	nil,                          // 9: pulse.v1.ConsumeResponse.HeadersEntry
 }
 var file_pulse_proto_depIdxs = []int32{
-	0, // 0: pulse.v1.PulseService.Publish:input_type -> pulse.v1.PublishRequest
-	2, // 1: pulse.v1.PulseService.Consume:input_type -> pulse.v1.ConsumeRequest
-	4, // 2: pulse.v1.PulseService.CommitOffset:input_type -> pulse.v1.CommitOffsetRequest
-	6, // 3: pulse.v1.PulseService.CreateTopic:input_type -> pulse.v1.CreateTopicRequest
-	1, // 4: pulse.v1.PulseService.Publish:output_type -> pulse.v1.PublishResponse
-	3, // 5: pulse.v1.PulseService.Consume:output_type -> pulse.v1.ConsumeResponse
-	5, // 6: pulse.v1.PulseService.CommitOffset:output_type -> pulse.v1.CommitOffsetResponse
-	7, // 7: pulse.v1.PulseService.CreateTopic:output_type -> pulse.v1.CreateTopicResponse
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	8, // 0: pulse.v1.PublishRequest.headers:type_name -> pulse.v1.PublishRequest.HeadersEntry
+	9, // 1: pulse.v1.ConsumeResponse.headers:type_name -> pulse.v1.ConsumeResponse.HeadersEntry
+	0, // 2: pulse.v1.PulseService.Publish:input_type -> pulse.v1.PublishRequest
+	2, // 3: pulse.v1.PulseService.Consume:input_type -> pulse.v1.ConsumeRequest
+	4, // 4: pulse.v1.PulseService.CommitOffset:input_type -> pulse.v1.CommitOffsetRequest
+	6, // 5: pulse.v1.PulseService.CreateTopic:input_type -> pulse.v1.CreateTopicRequest
+	1, // 6: pulse.v1.PulseService.Publish:output_type -> pulse.v1.PublishResponse
+	3, // 7: pulse.v1.PulseService.Consume:output_type -> pulse.v1.ConsumeResponse
+	5, // 8: pulse.v1.PulseService.CommitOffset:output_type -> pulse.v1.CommitOffsetResponse
+	7, // 9: pulse.v1.PulseService.CreateTopic:output_type -> pulse.v1.CreateTopicResponse
+	6, // [6:10] is the sub-list for method output_type
+	2, // [2:6] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_pulse_proto_init() }
@@ -549,7 +577,7 @@ func file_pulse_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pulse_proto_rawDesc), len(file_pulse_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

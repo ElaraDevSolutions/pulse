@@ -48,18 +48,47 @@ class Message:
         self.offset = proto_msg.offset
         self.timestamp = proto_msg.timestamp
         self._raw_payload = proto_msg.payload
+        # Headers from the broker (map<string,string>)
+        # Some older messages may not have headers.
+        try:
+            self._headers = dict(proto_msg.headers)
+        except Exception:
+            self._headers = {}
     
     @property
     def payload(self):
-        """Returns the payload. Tries to decode as JSON, falls back to bytes."""
+        """Return payload converted to original type using headers.
+
+        header `payload-type` values: 'json', 'string', 'bytes'.
+        If missing, attempt to parse JSON and fall back to bytes.
+        """
+        ptype = self._headers.get("payload-type")
+        if ptype == "json":
+            try:
+                return json.loads(self._raw_payload)
+            except Exception:
+                return self._raw_payload
+        if ptype == "string":
+            try:
+                return self._raw_payload.decode("utf-8")
+            except Exception:
+                return self._raw_payload
+        if ptype == "bytes":
+            return self._raw_payload
+
+        # Fallback for older messages: try JSON then bytes
         try:
             return json.loads(self._raw_payload)
-        except:
+        except Exception:
             return self._raw_payload
     
     @property
     def raw_payload(self):
         return self._raw_payload
+
+    @property
+    def headers(self):
+        return self._headers
 
     def __str__(self):
         return f"Message(offset={self.offset}, payload={self.payload})"

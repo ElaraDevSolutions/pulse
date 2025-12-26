@@ -136,7 +136,7 @@ func (l *AppendOnlyLog) loadSegments() error {
 	// Initialize GlobalOffset and ActiveSegment
 	if len(l.Segments) > 0 {
 		lastSeg := l.Segments[len(l.Segments)-1]
-		
+
 		// Open the last segment for appending
 		file, err := os.OpenFile(lastSeg.FilePath, os.O_RDWR|os.O_APPEND, 0644)
 		if err != nil {
@@ -245,7 +245,7 @@ func (l *AppendOnlyLog) Append(msg *message.Message) (uint64, error) {
 	}
 
 	msg.Offset = l.GlobalOffset
-	
+
 	// Serialize using MessagePack
 	data, err := msg.Serialize()
 	if err != nil {
@@ -363,7 +363,7 @@ func (l *AppendOnlyLog) Read(offset uint64, max int) ([]*message.Message, error)
 	defer l.mu.RUnlock()
 
 	var msgs []*message.Message
-	
+
 	// Find the starting segment using binary search or linear scan
 	startIdx := -1
 	for i, seg := range l.Segments {
@@ -385,13 +385,13 @@ func (l *AppendOnlyLog) Read(offset uint64, max int) ([]*message.Message, error)
 	// Iterate through segments starting from startIdx
 	for i := startIdx; i < len(l.Segments); i++ {
 		seg := l.Segments[i]
-		
+
 		// Open the segment file for reading
 		f, err := os.Open(seg.FilePath)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		decoder := NewSegmentDecoder(f)
 		for {
 			m, err := decoder.Decode()
@@ -429,7 +429,7 @@ func (l *AppendOnlyLog) RunRetention(maxBytes int64, maxAge time.Duration) error
 		for len(l.Segments) > 1 && l.TotalSize > maxBytes {
 			// Delete the oldest segment
 			oldest := l.Segments[0]
-			
+
 			// Safety check: never delete the active segment
 			if oldest == l.ActiveSegment {
 				break
@@ -438,7 +438,7 @@ func (l *AppendOnlyLog) RunRetention(maxBytes int64, maxAge time.Duration) error
 			if err := l.deleteSegment(oldest); err != nil {
 				return err
 			}
-			
+
 			// Remove from slice
 			l.Segments = l.Segments[1:]
 		}
@@ -449,7 +449,7 @@ func (l *AppendOnlyLog) RunRetention(maxBytes int64, maxAge time.Duration) error
 		now := time.Now()
 		for len(l.Segments) > 1 {
 			oldest := l.Segments[0]
-			
+
 			if oldest == l.ActiveSegment {
 				break
 			}
@@ -482,11 +482,15 @@ func (l *AppendOnlyLog) deleteSegment(seg *Segment) error {
 	if seg.File != nil {
 		seg.File.Close()
 	}
-	
+
 	if err := os.Remove(seg.FilePath); err != nil {
+		if os.IsNotExist(err) {
+			// Already removed by another routine; treat as success
+			return nil
+		}
 		return fmt.Errorf("failed to delete segment %s: %w", seg.FilePath, err)
 	}
-	
+
 	l.TotalSize -= seg.Size
 	fmt.Printf("Deleted segment: %s (freed %d bytes)\n", filepath.Base(seg.FilePath), seg.Size)
 	return nil
@@ -511,12 +515,12 @@ func (d *SegmentDecoder) Decode() (*message.Message, error) {
 	}
 
 	payloadLen := binary.BigEndian.Uint32(lenBuf)
-	
+
 	// Read payload
 	payloadBuf := make([]byte, payloadLen)
 	if _, err := io.ReadFull(d.r, payloadBuf); err != nil {
 		return nil, err
 	}
-	
+
 	return message.Deserialize(payloadBuf)
 }

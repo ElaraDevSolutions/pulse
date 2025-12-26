@@ -39,18 +39,23 @@ class Producer:
         Send a message to a topic.
         payload can be bytes or a dict (which will be JSON serialized).
         """
+        headers = {}
         if isinstance(payload, dict):
             data = json.dumps(payload).encode("utf-8")
+            headers["payload-type"] = "json"
         elif isinstance(payload, str):
             data = payload.encode("utf-8")
+            headers["payload-type"] = "string"
         elif isinstance(payload, bytes):
             data = payload
+            headers["payload-type"] = "bytes"
         else:
             raise ValueError("Payload must be bytes, str, or dict")
 
         request = pulse_pb2.PublishRequest(
             topic=topic,
-            payload=data
+            payload=data,
+            headers=headers
         )
         
         try:

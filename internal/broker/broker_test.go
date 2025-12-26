@@ -39,12 +39,12 @@ func TestBroker_ProduceConsume(t *testing.T) {
 	b.CreateTopic("t1", true, 0, 0, 1, time.Millisecond, 1024)
 
 	// Produce
-	if err := b.Produce("t1", []byte("hello")); err != nil {
+	if err := b.Produce("t1", []byte("hello"), nil); err != nil {
 		t.Fatalf("Produce failed: %v", err)
 	}
 
 	// Produce to non-existent
-	if err := b.Produce("t2", []byte("fail")); err == nil {
+	if err := b.Produce("t2", []byte("fail"), nil); err == nil {
 		t.Error("Expected error producing to non-existent topic")
 	}
 
@@ -67,7 +67,7 @@ func TestBroker_Persistence(t *testing.T) {
 	cfg1.DataDir = dir
 	b1, _ := New(cfg1)
 	b1.CreateTopic("persistent", true, 100, 0, 1, time.Second, 1024)
-	b1.Produce("persistent", []byte("data"))
+	b1.Produce("persistent", []byte("data"), nil)
 	time.Sleep(10 * time.Millisecond) // Wait for flush
 	b1.Close()
 

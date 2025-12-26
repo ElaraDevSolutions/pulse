@@ -160,7 +160,7 @@ func (b *Broker) CreateTopic(name string, fifo bool, retentionBytes int64, reten
 }
 
 // Produce receives a message payload and routes it to the specified topic.
-func (b *Broker) Produce(topicName string, payload []byte) error {
+func (b *Broker) Produce(topicName string, payload []byte, headers map[string]string) error {
 	b.mu.RLock()
 	t, exists := b.topics[topicName]
 	b.mu.RUnlock()
@@ -170,7 +170,7 @@ func (b *Broker) Produce(topicName string, payload []byte) error {
 	}
 
 	// Create message with temporary offset (will be assigned by LogStore)
-	msg := message.NewMessage(0, payload)
+	msg := message.NewMessage(0, payload, headers)
 
 	t.Publish(&msg)
 	return nil

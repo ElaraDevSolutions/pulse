@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bpulse.proto\x12\x08pulse.v1\"0\n\x0ePublishRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"-\n\x0fPublishResponse\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06offset\x18\x02 \x01(\x04\"F\n\x0e\x43onsumeRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x15\n\rconsumer_name\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x04\"E\n\x0f\x43onsumeResponse\x12\x0e\n\x06offset\x18\x01 \x01(\x04\x12\x11\n\ttimestamp\x18\x02 \x01(\x03\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\"K\n\x13\x43ommitOffsetRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x15\n\rconsumer_name\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x04\"\'\n\x14\x43ommitOffsetResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\"b\n\x12\x43reateTopicRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x0c\n\x04\x66ifo\x18\x02 \x01(\x08\x12\x17\n\x0fretention_bytes\x18\x03 \x01(\x03\x12\x16\n\x0eretention_time\x18\x04 \x01(\x03\"&\n\x13\x43reateTopicResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x32\xab\x02\n\x0cPulseService\x12>\n\x07Publish\x12\x18.pulse.v1.PublishRequest\x1a\x19.pulse.v1.PublishResponse\x12@\n\x07\x43onsume\x12\x18.pulse.v1.ConsumeRequest\x1a\x19.pulse.v1.ConsumeResponse0\x01\x12M\n\x0c\x43ommitOffset\x12\x1d.pulse.v1.CommitOffsetRequest\x1a\x1e.pulse.v1.CommitOffsetResponse\x12J\n\x0b\x43reateTopic\x12\x1c.pulse.v1.CreateTopicRequest\x1a\x1d.pulse.v1.CreateTopicResponseB\x11Z\x0fpulse/pkg/protob\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bpulse.proto\x12\x08pulse.v1\"\x98\x01\n\x0ePublishRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\x12\x36\n\x07headers\x18\x03 \x03(\x0b\x32%.pulse.v1.PublishRequest.HeadersEntry\x1a.\n\x0cHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"-\n\x0fPublishResponse\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06offset\x18\x02 \x01(\x04\"F\n\x0e\x43onsumeRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x15\n\rconsumer_name\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x04\"\xae\x01\n\x0f\x43onsumeResponse\x12\x0e\n\x06offset\x18\x01 \x01(\x04\x12\x11\n\ttimestamp\x18\x02 \x01(\x03\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x37\n\x07headers\x18\x04 \x03(\x0b\x32&.pulse.v1.ConsumeResponse.HeadersEntry\x1a.\n\x0cHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"K\n\x13\x43ommitOffsetRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x15\n\rconsumer_name\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x04\"\'\n\x14\x43ommitOffsetResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\"b\n\x12\x43reateTopicRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x0c\n\x04\x66ifo\x18\x02 \x01(\x08\x12\x17\n\x0fretention_bytes\x18\x03 \x01(\x03\x12\x16\n\x0eretention_time\x18\x04 \x01(\x03\"&\n\x13\x43reateTopicResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x32\xab\x02\n\x0cPulseService\x12>\n\x07Publish\x12\x18.pulse.v1.PublishRequest\x1a\x19.pulse.v1.PublishResponse\x12@\n\x07\x43onsume\x12\x18.pulse.v1.ConsumeRequest\x1a\x19.pulse.v1.ConsumeResponse0\x01\x12M\n\x0c\x43ommitOffset\x12\x1d.pulse.v1.CommitOffsetRequest\x1a\x1e.pulse.v1.CommitOffsetResponse\x12J\n\x0b\x43reateTopic\x12\x1c.pulse.v1.CreateTopicRequest\x1a\x1d.pulse.v1.CreateTopicResponseB\x11Z\x0fpulse/pkg/protob\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,22 +32,30 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'pulse_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z\017pulse/pkg/proto'
-  _globals['_PUBLISHREQUEST']._serialized_start=25
-  _globals['_PUBLISHREQUEST']._serialized_end=73
-  _globals['_PUBLISHRESPONSE']._serialized_start=75
-  _globals['_PUBLISHRESPONSE']._serialized_end=120
-  _globals['_CONSUMEREQUEST']._serialized_start=122
-  _globals['_CONSUMEREQUEST']._serialized_end=192
-  _globals['_CONSUMERESPONSE']._serialized_start=194
-  _globals['_CONSUMERESPONSE']._serialized_end=263
-  _globals['_COMMITOFFSETREQUEST']._serialized_start=265
-  _globals['_COMMITOFFSETREQUEST']._serialized_end=340
-  _globals['_COMMITOFFSETRESPONSE']._serialized_start=342
-  _globals['_COMMITOFFSETRESPONSE']._serialized_end=381
-  _globals['_CREATETOPICREQUEST']._serialized_start=383
-  _globals['_CREATETOPICREQUEST']._serialized_end=481
-  _globals['_CREATETOPICRESPONSE']._serialized_start=483
-  _globals['_CREATETOPICRESPONSE']._serialized_end=521
-  _globals['_PULSESERVICE']._serialized_start=524
-  _globals['_PULSESERVICE']._serialized_end=823
+  _globals['_PUBLISHREQUEST_HEADERSENTRY']._loaded_options = None
+  _globals['_PUBLISHREQUEST_HEADERSENTRY']._serialized_options = b'8\001'
+  _globals['_CONSUMERESPONSE_HEADERSENTRY']._loaded_options = None
+  _globals['_CONSUMERESPONSE_HEADERSENTRY']._serialized_options = b'8\001'
+  _globals['_PUBLISHREQUEST']._serialized_start=26
+  _globals['_PUBLISHREQUEST']._serialized_end=178
+  _globals['_PUBLISHREQUEST_HEADERSENTRY']._serialized_start=132
+  _globals['_PUBLISHREQUEST_HEADERSENTRY']._serialized_end=178
+  _globals['_PUBLISHRESPONSE']._serialized_start=180
+  _globals['_PUBLISHRESPONSE']._serialized_end=225
+  _globals['_CONSUMEREQUEST']._serialized_start=227
+  _globals['_CONSUMEREQUEST']._serialized_end=297
+  _globals['_CONSUMERESPONSE']._serialized_start=300
+  _globals['_CONSUMERESPONSE']._serialized_end=474
+  _globals['_CONSUMERESPONSE_HEADERSENTRY']._serialized_start=132
+  _globals['_CONSUMERESPONSE_HEADERSENTRY']._serialized_end=178
+  _globals['_COMMITOFFSETREQUEST']._serialized_start=476
+  _globals['_COMMITOFFSETREQUEST']._serialized_end=551
+  _globals['_COMMITOFFSETRESPONSE']._serialized_start=553
+  _globals['_COMMITOFFSETRESPONSE']._serialized_end=592
+  _globals['_CREATETOPICREQUEST']._serialized_start=594
+  _globals['_CREATETOPICREQUEST']._serialized_end=692
+  _globals['_CREATETOPICRESPONSE']._serialized_start=694
+  _globals['_CREATETOPICRESPONSE']._serialized_end=732
+  _globals['_PULSESERVICE']._serialized_start=735
+  _globals['_PULSESERVICE']._serialized_end=1034
 # @@protoc_insertion_point(module_scope)

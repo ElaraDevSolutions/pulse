@@ -56,7 +56,7 @@ func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.Broker.Produce(topic, body); err != nil {
+	if err := s.Broker.Produce(topic, body, nil); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
