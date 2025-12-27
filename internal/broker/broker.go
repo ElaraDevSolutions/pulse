@@ -33,6 +33,17 @@ type Broker struct {
 	Config  *config.Config
 }
 
+// ListTopics returns the list of topic names currently known to the broker.
+func (b *Broker) ListTopics() []string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	names := make([]string, 0, len(b.topics))
+	for name := range b.topics {
+		names = append(names, name)
+	}
+	return names
+}
+
 // New creates a new Broker instance.
 func New(cfg *config.Config) (*Broker, error) {
 	if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {

@@ -2,6 +2,7 @@ package api
 
 import (
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -28,6 +29,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/consume", s.handleConsume)
 	mux.HandleFunc("/commit", s.handleCommit)
 	mux.HandleFunc("/topic", s.handleTopic)
+	mux.HandleFunc("/topics", s.handleTopics)
+	mux.HandleFunc("/topic/message", s.handleTopicMessage)
 	mux.HandleFunc("/stats", s.handleStats)
 	mux.HandleFunc("/proto", s.handleProto)
 	return mux
@@ -193,6 +196,67 @@ func (s *Server) handleTopic(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte("Topic created"))
+}
+
+func (s *Server) handleTopics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	names := s.Broker.ListTopics()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(names)
+}
+
+func (s *Server) handleTopicMessage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	topic := r.URL.Query().Get("topic")
+	offsetStr := r.URL.Query().Get("offset")
+	if topic == "" || offsetStr == "" {
+		http.Error(w, "Missing topic or offset parameter", http.StatusBadRequest)
+		return
+	}
+
+	offset, err := strconv.ParseUint(offsetStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid offset", http.StatusBadRequest)
+		return
+	}
+
+	// Read a single message at offset
+	msgs, err := s.Broker.Consume(topic, offset, 1)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if len(msgs) == 0 {
+		http.Error(w, "Message not found", http.StatusNotFound)
+		return
+	}
+
+	// Return message with headers and payload as base64 to be safe
+	type MsgResp struct {
+		Offset    uint64            `json:"offset"`
+		Timestamp int64             `json:"timestamp"`
+		Payload   string            `json:"payload"`
+		Headers   map[string]string `json:"headers"`
+	}
+
+	m := msgs[0]
+	resp := MsgResp{
+		Offset:    m.Offset,
+		Timestamp: m.Timestamp,
+		Payload:   base64.StdEncoding.EncodeToString(m.Payload),
+		Headers:   m.Headers,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {

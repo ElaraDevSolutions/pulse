@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -58,7 +61,7 @@ func main() {
 	// DEBUG: Print args
 	// fmt.Printf("DEBUG: os.Args: %v\n", os.Args)
 
-	// Handle command-line arguments to support "pulse start -flags"
+	// Handle command-line arguments to support "pulse start -flags" and other commands
 	// We peek at the first argument to see if it's a command.
 	command := "start" // Default command
 	if len(os.Args) > 1 {
@@ -69,6 +72,9 @@ func main() {
 			// effectively shifting "pulse start -port 8080" to "pulse -port 8080"
 			// for the parser, while we remember the command.
 			os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
+		case "status", "topics", "topic":
+			command = os.Args[1]
+			// leave remaining args for parsing (topic name or flags)
 		}
 	}
 
@@ -93,6 +99,106 @@ func main() {
 		stopDaemon()
 	case "run":
 		runServer(cfg)
+	case "status":
+		// Check pid file and attempt to probe HTTP and gRPC ports
+		raw, err := os.ReadFile(pidFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Println("Pulse is not running")
+				os.Exit(0)
+			}
+			log.Fatalf("Failed to read PID file: %v", err)
+		}
+		pid, _ := strconv.Atoi(string(raw))
+		procAlive := true
+		if p, err := os.FindProcess(pid); err == nil {
+			if err := p.Signal(syscall.Signal(0)); err != nil {
+				procAlive = false
+			}
+		}
+
+		// Probe HTTP and gRPC ports
+		httpAddr := fmt.Sprintf("localhost:%d", cfg.Port)
+		grpcAddr := fmt.Sprintf("localhost:%d", cfg.GRPCPort)
+		httpReachable := false
+		grpcReachable := false
+		if _, err := net.Dial("tcp", httpAddr); err == nil {
+			httpReachable = true
+			fmt.Printf("HTTP API: listening on %s\n", httpAddr)
+		} else {
+			fmt.Printf("HTTP API: not reachable on %s\n", httpAddr)
+		}
+		if _, err := net.Dial("tcp", grpcAddr); err == nil {
+			grpcReachable = true
+			fmt.Printf("gRPC API: listening on %s\n", grpcAddr)
+		} else {
+			fmt.Printf("gRPC API: not reachable on %s\n", grpcAddr)
+		}
+
+		// If process signal check failed but one of the APIs is reachable,
+		// consider the service running (covers detached/sandboxed cases).
+		if !procAlive && (httpReachable || grpcReachable) {
+			procAlive = true
+		}
+
+		fmt.Printf("Pulse running: %v\n", procAlive)
+		fmt.Printf("PID: %d\n", pid)
+	case "topics":
+		// Query HTTP API /topics
+		url := fmt.Sprintf("http://localhost:%d/topics", cfg.Port)
+		resp, err := http.Get(url)
+		if err != nil {
+			log.Fatalf("Failed to query topics: %v", err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Println(string(body))
+	case "topic":
+		// Expect topic name as next arg or flag
+		if len(flag.Args()) == 0 {
+			fmt.Println("Usage: pulse topic <topic-name> [-m offset]")
+			os.Exit(1)
+		}
+		// flag.Args() may contain the command itself (e.g. ["topic", "events"]).
+		// Accept either form and pick the actual topic name.
+		var topicName string
+		if flag.Args()[0] == "topic" && len(flag.Args()) > 1 {
+			topicName = flag.Args()[1]
+		} else {
+			topicName = flag.Args()[0]
+		}
+		// check for -m flag via lookup in os.Args
+		var msgOffset string
+		for i, a := range os.Args {
+			if a == "-m" && i+1 < len(os.Args) {
+				msgOffset = os.Args[i+1]
+			}
+		}
+		if msgOffset != "" {
+			url := fmt.Sprintf("http://localhost:%d/topic/message?topic=%s&offset=%s", cfg.Port, topicName, msgOffset)
+			resp, err := http.Get(url)
+			if err != nil {
+				log.Fatalf("Failed to query topic message: %v", err)
+			}
+			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Println(string(body))
+			os.Exit(0)
+		}
+		// Otherwise query stats and pretty-print JSON
+		url := fmt.Sprintf("http://localhost:%d/stats?topic=%s", cfg.Port, topicName)
+		resp, err := http.Get(url)
+		if err != nil {
+			log.Fatalf("Failed to query topic stats: %v", err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		var pretty bytes.Buffer
+		if err := json.Indent(&pretty, body, "", "  "); err != nil {
+			fmt.Println(string(body))
+		} else {
+			fmt.Println(pretty.String())
+		}
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 		fmt.Println("Usage: pulse [start|stop|run] [flags]")

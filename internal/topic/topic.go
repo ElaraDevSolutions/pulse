@@ -23,6 +23,7 @@ type Stats struct {
 	ThroughputIn    float64 // Msgs/sec
 	ThroughputOut   float64 // Msgs/sec
 	PendingMessages map[string]uint64
+	LastOffset      uint64
 }
 
 // LogStore defines the interface for the log storage.
@@ -355,6 +356,11 @@ func (t *Topic) GetStats() Stats {
 	}
 	t.offsetsMu.RUnlock()
 
+	lastOffset := uint64(0)
+	if globalOffset > 0 {
+		lastOffset = globalOffset - 1
+	}
+
 	return Stats{
 		MsgInCount:      msgIn,
 		MsgOutCount:     msgOut,
@@ -363,5 +369,6 @@ func (t *Topic) GetStats() Stats {
 		ThroughputIn:    float64(msgIn) / duration,
 		ThroughputOut:   float64(msgOut) / duration,
 		PendingMessages: pending,
+		LastOffset:      lastOffset,
 	}
 }
