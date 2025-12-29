@@ -1,0 +1,54 @@
+name: Publish TypeScript SDK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver version to publish (e.g. 1.2.3 or 1.2.3-beta.1)'
+        required: true
+      tag:
+        description: 'npm tag to publish under (default: latest)'
+        required: false
+        default: 'latest'
+
+jobs:
+  publish:
+    name: Publish package
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/typescript
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Set package version
+        run: |
+          echo "Setting package version to ${{ github.event.inputs.version }}"
+          npm version "${{ github.event.inputs.version }}" --no-git-tag-version
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "Publishing with tag '${{ github.event.inputs.tag }}'"
+          npm publish --access public --tag "${{ github.event.inputs.tag }}"
+
+      - name: Finish
+        run: echo "Publish job finished"
