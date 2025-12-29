@@ -6,6 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "postbuild": "node scripts/copy-proto.js",
     "test": "jest"
   },
   "author": "",
