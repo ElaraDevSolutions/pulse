@@ -149,6 +149,25 @@ The tests in `tests/` start a lightweight gRPC test server automatically; run th
 - Can I use decorators for handlers? Yes — TypeScript supports decorators, but this SDK does not use them by default. We can add decorator helpers later if desired.
 - How do I enable TLS / secure credentials? The client factory currently uses `createInsecure()` by default. We can expose a `credentials` option on `PulseConfig` to accept `grpc.credentials.createSsl(...)` or other credential objects.
 
+**Grouped consumption**
+
+- **What it does:** When `grouped` is `true` (the default) the SDK coalesces consumers inside the same process that use the same `consumerName` into a single streaming connection. Messages are distributed (round-robin) among the registered handlers so each message is delivered to only one handler in the group (1x per client id).
+- **Why:** This mirrors the Python SDK behavior where handlers registered with `grouped=True` share a single consumer stream and avoid duplicate processing inside the same client.
+- **How to configure:**
+	- `pulse.yml` (recommended): set `grouped: true` or `grouped: false` under top-level config.
+	- Environment variable: `PULSE_GROUPED=true|false`.
+	- Programmatically: pass `grouped` in the `PulseConfig` passed to `Producer`/`Consumer`.
+- **Default:** `grouped` defaults to `true`.
+- **Grouped=false behavior:** When `grouped` is `false`, the SDK will ensure consumers use unique consumer IDs (if you pass the default client name), so multiple consumers in the same process each receive all messages independently (useful for testing or when you want duplicate consumption).
+- **Example `pulse.yml` entry:**
+
+```yaml
+grpcUrl: localhost:5556
+grouped: true
+```
+
+The test-suite includes integration tests that validate both `grouped=true` and `grouped=false` behaviour.
+
 ## Contributing
 
 Please open a PR with tests. The existing tests validate basic Producer/Consumer behaviour.
