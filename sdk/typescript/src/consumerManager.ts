@@ -12,6 +12,26 @@ interface StreamEntry {
   nextIndex?: number;
   grpcUrl?: string;
 }
+let suppressStreamWarnings = false;
+
+export async function shutdownAll(): Promise<void> {
+  // When shutting down tests/teardown, suppress stream warnings so Jest doesn't
+  // complain about logs after tests are finished.
+  suppressStreamWarnings = true;
+  for (const [k, entry] of Array.from(registry.entries())) {
+    try {
+      if (entry.stream) {
+        try { entry.stream.removeAllListeners(); } catch (_) {}
+        try { if (entry.stream.cancel) entry.stream.cancel(); } catch (_) {}
+        entry.stream = null;
+      }
+      try { entry.handlers.clear(); } catch (_) {}
+    } catch (_) {
+      // ignore individual errors
+    }
+    try { registry.delete(k); } catch (_) {}
+  }
+}
 
 const registry: Map<string, StreamEntry> = new Map();
 
@@ -85,9 +105,25 @@ function startStream(entry: StreamEntry) {
 
   stream.on('error', (e: any) => {
     // Log once and clean up the registry entry to avoid reconnect storms and test leaks
-    console.warn('shared consumer stream error for', entry.topic, e);
+    if (!suppressStreamWarnings) {
+      // Ignore normal client-side cancellations which happen during unregister
+      // and shutdown; only log unexpected stream errors.
+      try {
+        const code = e && typeof e.code !== 'undefined' ? e.code : null;
+        if (code !== 1) {
+          console.warn('shared consumer stream error for', entry.topic, e);
+        }
+      } catch (_) {
+        // if anything goes wrong determining code, log the error
+        console.warn('shared consumer stream error for', entry.topic, e);
+      }
+    }
     try {
-      if (entry.stream && entry.stream.cancel) entry.stream.cancel();
+      if (entry.stream) {
+        try { entry.stream.removeAllListeners(); } catch (_) {}
+        try { if (entry.stream.cancel) entry.stream.cancel(); } catch (_) {}
+        entry.stream = null;
+      }
     } catch (err) {
       // ignore
     }
@@ -101,6 +137,11 @@ function startStream(entry: StreamEntry) {
   stream.on('end', () => {
     // stream ended; clean up entry
     try {
+      if (entry.stream) {
+        try { entry.stream.removeAllListeners(); } catch (_) {}
+        try { if (entry.stream.cancel) entry.stream.cancel(); } catch (_) {}
+        entry.stream = null;
+      }
       registry.delete(keyFor(entry.grpcUrl || '', entry.topic, entry.consumerName));
     } catch (err) {
       // ignore

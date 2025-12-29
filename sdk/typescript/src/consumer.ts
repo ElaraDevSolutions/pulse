@@ -71,10 +71,13 @@ export class Consumer {
       }
     });
 
-    return new Promise<void>((resolve, reject) => {
+    const p = new Promise<void>((resolve, reject) => {
       stream.on('end', () => resolve());
       stream.on('error', (e: any) => reject(e));
     });
+    // prevent unhandled rejections when callers don't await the returned promise
+    p.catch(() => {});
+    return p;
   }
 
   // unregister any shared handlers when this consumer is discarded

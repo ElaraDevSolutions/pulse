@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "postbuild": "node scripts/copy-proto.js",
-    "test": "jest"
+    "test": "npm run build && jest"
   },
   "author": "",
   "license": "MIT",
@@ -36,6 +36,7 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.ts"]
+    "testMatch": ["**/tests/**/*.test.ts"],
+    "globalTeardown": "<rootDir>/tests/globalTeardown.js"
   }
 }
