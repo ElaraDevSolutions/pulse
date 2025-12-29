@@ -28,11 +28,58 @@ Run the lightweight integration tests (a test gRPC server is started automatical
 npm test
 ```
 
-## Configuration (current)
+## Configuration
 
-Currently the SDK supports programmatic configuration only: create and pass a `PulseConfig` object when instantiating `Producer` or `Consumer`.
+The SDK supports configuration via (in priority order):
 
-The code exposes a `PulseConfig` interface for strong typing. Environment-file loading (e.g. `pulse.yml` or `PULSE_*` environment variables) is planned but not implemented in this initial version — for now, pass configuration directly in code.
+1. Programmatic: pass a `PulseConfig` object when creating `Producer` or `Consumer`.
+2. Environment variables: `PULSE_GRPC_URL`, `PULSE_EVENT_TYPES` (comma-separated), `PULSE_CONSUMER_NAME`.
+3. File: a `pulse.yml` or `pulse.yaml` file placed at the process working directory or in `~/.pulse/pulse.yml`.
+
+The SDK exposes two helpers:
+
+- `loadConfig(configPath?: string): PulseConfig` — reads `pulse.yml` / env and returns a merged config object.
+- `initFromConfig(cfg: PulseConfig): Promise<void>` — calls the broker `CreateTopic` RPC for every topic declared in `cfg.topics`. This lets the SDK create any required topics automatically at startup (useful for tests or first-run).
+
+Example `pulse.yml`:
+
+```yaml
+grpcUrl: localhost:5556
+eventTypes:
+	- events
+	- transactions
+consumerName: my-consumer
+topics:
+	- name: events
+		fifo: false
+	- name: transactions
+		fifo: true
+```
+
+Usage example (auto-create topics then start):
+
+```ts
+import { loadConfig, initFromConfig, Producer, Consumer } from 'pulse-sdk';
+
+async function main() {
+	const cfg = loadConfig(); // reads pulse.yml or environment
+	await initFromConfig(cfg); // create topics listed in cfg.topics (no-op if none)
+
+	const producer = new Producer(cfg);
+	await producer.send('events', { type: 'user.created', id: 1 });
+
+	const consumer = new Consumer(cfg);
+	consumer.on('events', (msg) => console.log('received', msg.payload));
+	await consumer.start('events', cfg.consumerName || 'default');
+}
+
+main().catch(console.error);
+```
+
+Notes:
+- `initFromConfig` calls the gRPC `CreateTopic` RPC. If the broker responds with an error for a topic that already exists, the SDK logs a warning and continues.
+- Ensure the broker is running and reachable at `cfg.grpcUrl` before calling `initFromConfig`.
+- The SDK bundles `pulse.proto` inside the package so consumers do not need to copy proto files into their projects.
 
 ## Quick Start
 
