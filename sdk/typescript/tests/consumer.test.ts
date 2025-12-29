@@ -15,7 +15,7 @@ describe('Consumer', () => {
   });
 
   it('should receive streamed events', async () => {
-    const config: PulseConfig = { grpcUrl: `localhost:${port}`, eventTypes: ['test'] };
+    const config: PulseConfig = { grpcUrl: `localhost:${port}`, eventTypes: ['test'], grouped: false };
     const consumer = new Consumer(config);
 
     const received: any[] = [];

@@ -35,6 +35,7 @@ export class Consumer {
       for (const h of handlers) {
         const unregister = registerSharedHandler(this.config.grpcUrl, topicName, consumerName, (msg: any, stub?: any, offset?: number) => {
           // run handler with context so commit() works
+          // debug: console.log('consumer.wrapper.invoke', consumerName, topicName);
           runWithContext({ stub: stub || this.client, topic: topicName, consumerName, offset: offset ?? msg.offset }, () => {
             try { h(msg); } catch (e) { /* ignore */ }
           });
@@ -43,9 +44,8 @@ export class Consumer {
       }
 
       // Return a promise that never resolves (stream runs until process exits)
-      return new Promise<void>(() => {});
-    }
-        import { Message, runWithContext } from './message';
+        return new Promise<void>(() => {});
+      }
 
     // If grouped is explicitly false, and the consumerName equals the configured
     // client name or the default literal, generate a unique consumer id so each

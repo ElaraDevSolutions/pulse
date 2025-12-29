@@ -17,14 +17,14 @@ test('grouped=true dispatches messages across handlers (one delivery per message
   const p1 = new Promise<void>((resolve) => {
     c1.on('events', () => {
       c1count++;
-      if (c1count + c2count >= 2) resolve();
+      resolve();
     });
   });
 
   const p2 = new Promise<void>((resolve) => {
     c2.on('events', () => {
       c2count++;
-      if (c1count + c2count >= 2) resolve();
+      resolve();
     });
   });
 
