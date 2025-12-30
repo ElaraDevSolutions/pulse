@@ -1,4 +1,4 @@
-name: Publish TypeScript SDK (manual)
+name: Publish TypeScript SDK
 
 on:
   workflow_dispatch:
@@ -39,9 +39,12 @@ jobs:
         run: npm test
 
       - name: Set package version
+        env:
+          TARGET_VERSION: ${{ github.event.inputs.version }}
         run: |
-          echo "Setting package version to ${{ github.event.inputs.version }}"
-          npm version "${{ github.event.inputs.version }}" --no-git-tag-version
+          echo "Desired version: $TARGET_VERSION"
+          # Running in sdk/typescript (defaults.run.working-directory)
+          node -e "const fs=require('fs'); const p=require('./package.json'); if(p.version!==process.env.TARGET_VERSION){ require('child_process').execSync('npm version \"'+process.env.TARGET_VERSION+'\" --no-git-tag-version',{stdio:'inherit'}); } else { console.log('package.json version already', p.version, '- skipping npm version'); }"
 
       - name: Publish to npm
         env:
