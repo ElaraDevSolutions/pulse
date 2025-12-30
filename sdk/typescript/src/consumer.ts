@@ -58,7 +58,17 @@ export class Consumer {
     }
 
     const req = { topic: topicName, consumer_name: consumerName, offset: 0 };
-    const stream = this.client.Consume(req);
+    let stream: any = null;
+    try {
+      stream = this.client.Consume(req);
+    } catch (err) {
+      // If the client throws synchronously (e.g. CANCELLED), return a promise
+      // that is rejected but handled to avoid an unhandled rejection when
+      // callers don't await `start()` (tests call start() without awaiting).
+      const p = Promise.reject(err);
+      p.catch(() => {}); // swallow to avoid uncaught rejection
+      return p;
+    }
 
     stream.on('data', (msg: any) => {
       const message = new Message(msg);

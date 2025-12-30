@@ -29,8 +29,9 @@ test('grouped=false each consumer receives all messages', async () => {
   });
 
   // start consumers without specifying unique names; SDK should create unique ids when grouped=false
-  c1.start('events', cfg.consumerName || 'test-client');
-  c2.start('events', cfg.consumerName || 'test-client');
+  // Attach a catch so asynchronous stream errors don't trigger unhandled rejections.
+  c1.start('events', cfg.consumerName || 'test-client').catch(() => {});
+  c2.start('events', cfg.consumerName || 'test-client').catch(() => {});
 
   // wait for both consumers to receive 2 messages each
   await Promise.race([Promise.all([p1, p2]), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 3000))]);

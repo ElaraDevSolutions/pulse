@@ -28,9 +28,11 @@ test('grouped=true dispatches messages across handlers (one delivery per message
     });
   });
 
-  // start consumers (they register handlers to shared stream)
-  c1.start('events', cfg.consumerName || 'test-group');
-  c2.start('events', cfg.consumerName || 'test-group');
+  // start consumers (they register handlers to shared stream). Attach a
+  // catch to the returned promise so any asynchronous stream errors don't
+  // result in unhandled rejections when tests don't await start().
+  c1.start('events', cfg.consumerName || 'test-group').catch(() => {});
+  c2.start('events', cfg.consumerName || 'test-group').catch(() => {});
 
   // wait for both messages to be processed
   await Promise.race([Promise.all([p1, p2]), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000))]);

@@ -29,6 +29,7 @@ export async function shutdownAll(): Promise<void> {
     } catch (_) {
       // ignore individual errors
     }
+    try { if (entry.client && typeof entry.client.close === 'function') entry.client.close(); } catch (_) {}
     try { registry.delete(k); } catch (_) {}
   }
 }
@@ -128,6 +129,7 @@ function startStream(entry: StreamEntry) {
       // ignore
     }
     try {
+      try { if (entry.client && typeof entry.client.close === 'function') entry.client.close(); } catch (_) {}
       registry.delete(keyFor(entry.grpcUrl || '', entry.topic, entry.consumerName));
     } catch (err) {
       // ignore
@@ -142,6 +144,7 @@ function startStream(entry: StreamEntry) {
         try { if (entry.stream.cancel) entry.stream.cancel(); } catch (_) {}
         entry.stream = null;
       }
+      try { if (entry.client && typeof entry.client.close === 'function') entry.client.close(); } catch (_) {}
       registry.delete(keyFor(entry.grpcUrl || '', entry.topic, entry.consumerName));
     } catch (err) {
       // ignore

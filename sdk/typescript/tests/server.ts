@@ -21,8 +21,15 @@ export function startTestServer(port = 0): Promise<{ server: grpc.Server; port: 
         { offset: 1, timestamp: Date.now(), payload: Buffer.from(JSON.stringify({ foo: 'bar1' })), headers: {} },
         { offset: 2, timestamp: Date.now(), payload: Buffer.from(JSON.stringify({ foo: 'bar2' })), headers: {} },
       ];
-      msgs.forEach((m, i) => setTimeout(() => call.write(m), i * 50));
-      setTimeout(() => call.end(), msgs.length * 50 + 10);
+      const timers: NodeJS.Timeout[] = [];
+      msgs.forEach((m, i) => {
+        const t = setTimeout(() => call.write(m), i * 50);
+        if (typeof (t as any).unref === 'function') (t as any).unref();
+        timers.push(t);
+      });
+      const endTimer = setTimeout(() => call.end(), msgs.length * 50 + 10);
+      if (typeof (endTimer as any).unref === 'function') (endTimer as any).unref();
+      timers.push(endTimer);
     },
     CommitOffset(call: any, callback: any) {
       callback(null, { success: true });
