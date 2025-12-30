@@ -2,9 +2,9 @@ import { PulseConfig } from './config';
 import { createClient } from './proto/client';
 import { registerSharedHandler } from './consumerManager';
 import { randomUUID } from 'crypto';
-import { Message, runWithContext } from './message';
+import { Message, runWithContext, commit } from './message';
 
-export type EventHandler = (payload: any) => void;
+export type EventHandler = (payload: any) => any;
 
 export class Consumer {
   private handlers: Record<string, EventHandler[]> = {};
@@ -34,12 +34,17 @@ export class Consumer {
       const handlers = this.handlers[topicName] || [];
       for (const h of handlers) {
         const unregister = registerSharedHandler(this.config.grpcUrl, topicName, consumerName, (msg: any, stub?: any, offset?: number) => {
-          // run handler with context so commit() works
+          // run handler with context so commit() works and support auto-commit
           // debug: console.log('consumer.wrapper.invoke', consumerName, topicName);
-          runWithContext({ stub: stub || this.client, topic: topicName, consumerName, offset: offset ?? msg.offset }, () => {
-            try { h(msg); } catch (e) { /* ignore */ }
-          });
-        });
+          (async () => {
+            await runWithContext({ stub: stub || this.client, topic: topicName, consumerName, offset: offset ?? msg.offset }, async () => {
+              try { const r = h(msg); if (r && typeof r.then === 'function') await r; } catch (e) { /* ignore */ }
+              if ((this.config as any).autoCommit !== false) {
+                try { await commit(); } catch (_) { /* ignore commit errors */ }
+              }
+            });
+          })().catch(() => {});
+        }, { autoCommit: (this.config as any).autoCommit });
         this.unregisterFns.push(unregister);
       }
 
@@ -75,9 +80,18 @@ export class Consumer {
       const handlers = this.handlers[req.topic] || [];
       for (const h of handlers) {
         // run handler within AsyncLocalStorage context so commit() can access stub and offset
-        runWithContext({ stub: this.client, topic: req.topic, consumerName, offset: message.offset }, () => {
-          try { h(message); } catch (e) { /* handler error ignored here */ }
-        });
+        (async () => {
+          try {
+            await runWithContext({ stub: this.client, topic: req.topic, consumerName, offset: message.offset }, async () => {
+              try { const r = h(message); if (r && typeof r.then === 'function') await r; } catch (e) { /* handler error ignored here */ }
+              if ((this.config as any).autoCommit !== false) {
+                try { await commit(); } catch (_) { /* ignore commit errors */ }
+              }
+            });
+          } catch (err) {
+            // ignore
+          }
+        })().catch(() => {});
       }
     });
 

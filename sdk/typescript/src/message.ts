@@ -18,7 +18,7 @@ interface MessageContext {
 const storage = new AsyncLocalStorage<MessageContext | undefined>();
 
 export function runWithContext(ctx: MessageContext, fn: () => void) {
-  storage.run(ctx, fn);
+  return storage.run(ctx, fn as any);
 }
 
 export function getContext(): MessageContext | undefined {

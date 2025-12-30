@@ -1,7 +1,7 @@
 import { createClient } from './proto/client';
-import { Message, runWithContext } from './message';
+import { Message, runWithContext, commit } from './message';
 
-type Handler = (msg: any) => void;
+type Handler = (msg: any) => any;
 
 interface StreamEntry {
   topic: string;
@@ -11,6 +11,7 @@ interface StreamEntry {
   handlers: Set<Handler>;
   nextIndex?: number;
   grpcUrl?: string;
+  autoCommit?: boolean;
 }
 let suppressStreamWarnings = false;
 
@@ -40,12 +41,12 @@ function keyFor(grpcUrl: string, topic: string, consumerName: string) {
   return `${grpcUrl}::${topic}::${consumerName}`;
 }
 
-export function registerSharedHandler(grpcUrl: string, topic: string, consumerName: string, handler: Handler) {
+export function registerSharedHandler(grpcUrl: string, topic: string, consumerName: string, handler: Handler, opts?: { autoCommit?: boolean }) {
   const k = keyFor(grpcUrl, topic, consumerName);
   let entry = registry.get(k);
     if (!entry) {
     const client = createClient(grpcUrl);
-    entry = { topic, consumerName, client, stream: null, handlers: new Set(), nextIndex: 0, grpcUrl };
+    entry = { topic, consumerName, client, stream: null, handlers: new Set(), nextIndex: 0, grpcUrl, autoCommit: opts?.autoCommit !== false };
     // add handler before starting the stream to avoid losing early messages
     entry.handlers.add(handler);
     registry.set(k, entry);
@@ -93,15 +94,20 @@ function startStream(entry: StreamEntry) {
     if (entry.nextIndex === undefined) entry.nextIndex = 0;
     const h = handlers[entry.nextIndex % handlers.length];
     entry.nextIndex = (entry.nextIndex + 1) % handlers.length;
-    try {
-      // run handler inside context providing the stub for commit()
-      // debug: console.log('consumerManager.dispatch', entry.topic, 'offset', message.offset, 'handlerIndex', entry.nextIndex);
-      runWithContext({ stub: entry.client, topic: entry.topic, consumerName: entry.consumerName, offset: message.offset }, () => {
-        h(message);
-      });
-    } catch (e) {
-      console.warn('handler error', e);
-    }
+    // run handler inside context providing the stub for commit(); support async handlers
+    (async () => {
+      try {
+        await runWithContext({ stub: entry.client, topic: entry.topic, consumerName: entry.consumerName, offset: message.offset }, async () => {
+          const r = h(message);
+          if (r && typeof r.then === 'function') await r;
+          if (entry.autoCommit) {
+            try { await commit(); } catch (err) { /* ignore commit errors here */ }
+          }
+        });
+      } catch (e) {
+        console.warn('handler error', e);
+      }
+    })().catch(() => {});
   });
 
   stream.on('error', (e: any) => {

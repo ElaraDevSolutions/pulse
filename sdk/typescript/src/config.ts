@@ -16,6 +16,7 @@ export interface PulseConfig {
   eventTypes: string[];
   consumerName?: string;
   grouped?: boolean;
+  autoCommit?: boolean;
   topics?: TopicConfig[];
 }
 
@@ -23,6 +24,7 @@ const DEFAULTS: Partial<PulseConfig> = {
   grpcUrl: 'localhost:50052',
   eventTypes: ['events'],
   grouped: true,
+  autoCommit: true,
 };
 
 export function loadConfig(configPath?: string): PulseConfig {
@@ -48,11 +50,13 @@ export function loadConfig(configPath?: string): PulseConfig {
   if (process.env.PULSE_EVENT_TYPES) envCfg.eventTypes = process.env.PULSE_EVENT_TYPES.split(',');
   if (process.env.PULSE_CONSUMER_NAME) envCfg.consumerName = process.env.PULSE_CONSUMER_NAME;
   if (process.env.PULSE_GROUPED) envCfg.grouped = process.env.PULSE_GROUPED === 'true';
+  if (process.env.PULSE_AUTOCOMMIT) envCfg.autoCommit = process.env.PULSE_AUTOCOMMIT === 'true';
 
   const merged: PulseConfig = Object.assign({}, DEFAULTS, fileCfg, envCfg) as PulseConfig;
   // Ensure eventTypes array exists
   if (!merged.eventTypes) merged.eventTypes = DEFAULTS.eventTypes as string[];
   if (merged.grouped === undefined) merged.grouped = true;
+  if (merged.autoCommit === undefined) merged.autoCommit = true;
   return merged;
 }
 
