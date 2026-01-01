@@ -1,0 +1,69 @@
+{{define "content"}}
+<nav class="breadcrumb" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="/">Topics</a></li>
+    <li class="is-active"><a href="#" aria-current="page">{{.Data.Name}}</a></li>
+  </ul>
+</nav>
+
+<div class="columns">
+  <div class="column is-two-thirds">
+    <h3 class="title is-4">Messages</h3>
+    {{if .Data.Messages}}
+      {{range .Data.Messages}}
+      <div class="box">
+        <article class="media">
+          <div class="media-content">
+            <div class="content">
+              <p>
+                <strong>Offset: {{.Offset}}</strong> <small>{{.Timestamp}}</small>
+                <br>
+                <pre>{{.Payload}}</pre>
+              </p>
+            </div>
+          </div>
+        </article>
+      </div>
+      {{end}}
+    {{else}}
+      <div class="notification is-info">
+        No messages found (or consumer offset is at the end).
+      </div>
+    {{end}}
+  </div>
+
+  <div class="column">
+    <div class="box">
+      <h3 class="title is-4">Publish Message</h3>
+      <form action="/publish" method="POST">
+        <input type="hidden" name="topic" value="{{.Data.Name}}">
+        <div class="field">
+          <label class="label">Payload</label>
+          <div class="control">
+            <textarea class="textarea" name="payload" placeholder="Message content" required></textarea>
+          </div>
+        </div>
+        <div class="control">
+          <button class="button is-primary">Publish</button>
+        </div>
+      </form>
+    </div>
+
+    {{if .Data.Stats}}
+    <div class="box">
+      <h3 class="title is-5">Stats</h3>
+      <table class="table is-fullwidth">
+        <tbody>
+          {{range $key, $value := .Data.Stats}}
+          <tr>
+            <th>{{$key}}</th>
+            <td>{{$value}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}

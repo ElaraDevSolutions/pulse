@@ -1,0 +1,48 @@
+{{define "content"}}
+<div class="columns">
+  <div class="column is-one-third">
+    <div class="box">
+      <h3 class="title is-4">Create Topic</h3>
+      <form action="/create-topic" method="POST">
+        <div class="field">
+          <label class="label">Name</label>
+          <div class="control">
+            <input class="input" type="text" name="name" placeholder="Topic Name" required>
+          </div>
+        </div>
+        <div class="field">
+          <label class="checkbox">
+            <input type="checkbox" name="fifo">
+            FIFO
+          </label>
+        </div>
+        <div class="control">
+          <button class="button is-primary">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="column">
+    <h3 class="title is-4">Topics</h3>
+    {{if .Data}}
+      <aside class="menu">
+        <ul class="menu-list">
+          {{range .Data}}
+          <li>
+            <a href="/topic?name={{.}}">
+              <span class="icon-text">
+                <span class="icon"><i class="fas fa-layer-group"></i></span>
+                <span>{{.}}</span>
+              </span>
+            </a>
+          </li>
+          {{end}}
+        </ul>
+      </aside>
+    {{else}}
+      <p>No topics found.</p>
+    {{end}}
+  </div>
+</div>
+{{end}}

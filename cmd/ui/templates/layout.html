@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pulse UI - {{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/bulma.min.css">
+    <link rel="stylesheet" href="/static/css/fontawesome.min.css">
+  </head>
+  <body>
+    <nav class="navbar is-primary" role="navigation" aria-label="main navigation">
+      <div class="navbar-brand">
+        <a class="navbar-item" href="/">
+          <strong>Pulse UI</strong>
+        </a>
+      </div>
+    </nav>
+
+    <section class="section">
+      <div class="container">
+        {{if .Error}}
+        <div class="notification is-danger">
+          <button class="delete"></button>
+          {{.Error}}
+        </div>
+        {{end}}
+        {{template "content" .}}
+      </div>
+    </section>
+    
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        (document.querySelectorAll('.notification .delete') || []).forEach(($delete) => {
+          const $notification = $delete.parentNode;
+          $delete.addEventListener('click', () => {
+            $notification.parentNode.removeChild($notification);
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

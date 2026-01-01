@@ -16,6 +16,9 @@ service PulseService {
 
   // CreateTopic creates a new topic.
   rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse);
+
+  // ListTopics returns a list of all topics.
+  rpc ListTopics(ListTopicsRequest) returns (ListTopicsResponse);
 }
 
 message PublishRequest {
@@ -46,6 +49,30 @@ message CommitOffsetRequest {
   string topic = 1;
   string consumer_name = 2;
   uint64 offset = 3;
+}
+
+message CommitOffsetResponse {
+  bool success = 1;
+}
+
+message CreateTopicRequest {
+  string name = 1;
+  bool fifo = 2;
+  int64 retention_bytes = 3;
+  int64 retention_time = 4;
+  int32 flush_threshold = 5;
+  int64 flush_interval = 6;
+  int64 segment_size = 7;
+}
+
+message CreateTopicResponse {
+  bool success = 1;
+}
+
+message ListTopicsRequest {}
+
+message ListTopicsResponse {
+  repeated string topics = 1;
 }
 
 message CommitOffsetResponse {
