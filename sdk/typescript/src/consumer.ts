@@ -3,7 +3,7 @@ import { createClient } from './proto/client';
 import { Message, runWithContext, commit } from './message';
 import { randomUUID } from 'crypto';
 
-export { commit };
+export { commit, Message };
 
 interface ConsumerOptions {
   host?: string;
@@ -114,7 +114,7 @@ async function consumeLoopGroup(groupConfig: {
   handlers: ((msg: Message) => void | Promise<void>)[];
 }) {
   const address = `${groupConfig.host}:${groupConfig.port}`;
-  console.log(`Starting consumer for topic '${groupConfig.topic}' (group: ${groupConfig.group}) on ${address}`);
+  // console.log(`Starting consumer for topic '${groupConfig.topic}' (group: ${groupConfig.group}) on ${address}`);
 
   let handlerIdx = 0;
 
@@ -173,7 +173,7 @@ async function consumeLoopGroup(groupConfig: {
       });
 
       stream.on('end', () => {
-        console.warn(`Stream ended for ${groupConfig.topic}. Retrying in 5s...`);
+        // console.warn(`Stream ended for ${groupConfig.topic}. Retrying in 5s...`);
         setTimeout(startStream, 5000);
       });
 

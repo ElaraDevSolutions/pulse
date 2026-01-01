@@ -36,7 +36,7 @@ export async function commit() {
         console.error(`Error committing offset: ${err}`);
         return reject(err);
       }
-      console.log(`Committed offset ${req.offset} for ${req.consumer_name}`);
+      // console.log(`Committed offset ${req.offset} for ${req.consumer_name}`);
       ctx.committed = true;
       resolve();
     });

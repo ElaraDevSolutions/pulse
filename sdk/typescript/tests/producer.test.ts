@@ -1,5 +1,4 @@
 import { Producer } from '../src/producer';
-import { PulseConfig } from '../src/config';
 import { startTestServer } from './server';
 
 describe('Producer', () => {
@@ -14,11 +13,10 @@ describe('Producer', () => {
     server.forceShutdown();
   });
 
-  it('should send event and receive publish response', async () => {
-    const config: PulseConfig = { grpcUrl: `localhost:${port}`, eventTypes: ['test'] };
-    const producer = new Producer(config);
-    const res = await producer.send('test', { foo: 'bar' });
-    expect(res.id).toBe('msg-1');
-    expect(Number(res.offset)).toBeGreaterThan(0);
+  it('should send event', async () => {
+    const producer = new Producer('localhost', port);
+    await producer.send('test', { foo: 'bar' });
+    // send returns void, so we just check it doesn't throw
+    producer.close();
   });
 });

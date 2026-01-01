@@ -1,5 +1,4 @@
-import { Consumer } from '../src/consumer';
-import { PulseConfig } from '../src/config';
+import { consumer, run, Message } from '../src/consumer';
 import { startTestServer } from './server';
 
 describe('Consumer', () => {
@@ -15,16 +14,24 @@ describe('Consumer', () => {
   });
 
   it('should receive streamed events', async () => {
-    const config: PulseConfig = { grpcUrl: `localhost:${port}`, eventTypes: ['test'], grouped: false };
-    const consumer = new Consumer(config);
-
     const received: any[] = [];
-    consumer.on('test', (payload) => {
-      received.push(payload);
+    
+    consumer('test', async (msg: Message) => {
+      received.push(msg.payload);
+    }, { 
+      host: 'localhost', 
+      port: port,
+      grouped: false,
+      consumerGroup: 'test-consumer'
     });
 
-    await consumer.start('test', 'test-consumer');
+    // Start the consumer loop
+    run();
+
+    // Wait for messages
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     expect(received.length).toBeGreaterThanOrEqual(1);
-    expect(received[0].payload.foo).toBeDefined();
+    expect(received[0].foo).toBe('bar1');
   });
 });

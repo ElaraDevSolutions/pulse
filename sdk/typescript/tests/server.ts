@@ -18,8 +18,8 @@ export function startTestServer(port = 0): Promise<{ server: grpc.Server; port: 
     Consume(call: any) {
       // write 2 messages then end
       const msgs = [
-        { offset: 1, timestamp: Date.now(), payload: Buffer.from(JSON.stringify({ foo: 'bar1' })), headers: {} },
-        { offset: 2, timestamp: Date.now(), payload: Buffer.from(JSON.stringify({ foo: 'bar2' })), headers: {} },
+        { offset: 1, timestamp: Date.now(), payload: Buffer.from(JSON.stringify({ foo: 'bar1' })), headers: { 'payload-type': 'json' } },
+        { offset: 2, timestamp: Date.now(), payload: Buffer.from(JSON.stringify({ foo: 'bar2' })), headers: { 'payload-type': 'json' } },
       ];
       const timers: NodeJS.Timeout[] = [];
       msgs.forEach((m, i) => {
