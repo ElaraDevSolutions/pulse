@@ -1,5 +1,5 @@
 import { startTestServer } from './server';
-import { consumer, run, Message } from '../src/consumer';
+import { consumer, run, Message, stop } from '../src/consumer';
 
 test('grouped=false each consumer receives all messages', async () => {
   const { server, port } = await startTestServer();
@@ -23,5 +23,6 @@ test('grouped=false each consumer receives all messages', async () => {
   expect(c1count).toBeGreaterThanOrEqual(2);
   expect(c2count).toBeGreaterThanOrEqual(2);
 
+  stop();
   server.forceShutdown();
 });

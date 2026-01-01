@@ -1,4 +1,4 @@
-import { consumer, run, Message } from '../src/consumer';
+import { consumer, run, Message, stop } from '../src/consumer';
 import { startTestServer } from './server';
 
 describe('Consumer', () => {
@@ -10,6 +10,7 @@ describe('Consumer', () => {
     port = srv.port;
   });
   afterAll(() => {
+    stop();
     server.forceShutdown();
   });
 

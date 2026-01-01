@@ -24,6 +24,13 @@ interface RegisteredConsumer {
 }
 
 const _consumers: RegisteredConsumer[] = [];
+const _cleanupFunctions: (() => void)[] = [];
+
+export function stop() {
+  _cleanupFunctions.forEach(fn => fn());
+  _cleanupFunctions.length = 0;
+  _consumers.length = 0;
+}
 
 export function consumer(
   topic: string,
@@ -117,8 +124,30 @@ async function consumeLoopGroup(groupConfig: {
   // console.log(`Starting consumer for topic '${groupConfig.topic}' (group: ${groupConfig.group}) on ${address}`);
 
   let handlerIdx = 0;
+  let currentStream: any = null;
+  let retryTimeout: NodeJS.Timeout | null = null;
+  let isStopped = false;
+
+  const cleanup = () => {
+    isStopped = true;
+    if (currentStream) {
+      try {
+        currentStream.cancel();
+      } catch (e) {
+        // Ignore cancel errors
+      }
+      currentStream = null;
+    }
+    if (retryTimeout) {
+      clearTimeout(retryTimeout);
+      retryTimeout = null;
+    }
+  };
+  _cleanupFunctions.push(cleanup);
 
   const startStream = async () => {
+    if (isStopped) return;
+
     try {
       const client = createClient(address);
       const req = {
@@ -128,8 +157,10 @@ async function consumeLoopGroup(groupConfig: {
       };
 
       const stream = client.Consume(req);
+      currentStream = stream;
 
       stream.on('data', async (protoMsg: any) => {
+        if (isStopped) return;
         // Pause stream to process message sequentially
         stream.pause();
 
@@ -168,18 +199,24 @@ async function consumeLoopGroup(groupConfig: {
       });
 
       stream.on('error', (err: any) => {
+        if (isStopped) return;
+        // 1 = CANCELLED
+        if (err.code === 1) return;
+        
         console.error(`Connection lost for ${groupConfig.topic}: ${err.message}. Retrying in 5s...`);
-        setTimeout(startStream, 5000);
+        retryTimeout = setTimeout(startStream, 5000);
       });
 
       stream.on('end', () => {
+        if (isStopped) return;
         // console.warn(`Stream ended for ${groupConfig.topic}. Retrying in 5s...`);
-        setTimeout(startStream, 5000);
+        retryTimeout = setTimeout(startStream, 5000);
       });
 
     } catch (e: any) {
+      if (isStopped) return;
       console.error(`Unexpected error in consumer ${groupConfig.topic}: ${e.message}`);
-      setTimeout(startStream, 5000);
+      retryTimeout = setTimeout(startStream, 5000);
     }
   };
 

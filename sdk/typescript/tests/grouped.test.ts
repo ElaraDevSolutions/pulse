@@ -1,5 +1,5 @@
 import { startTestServer } from './server';
-import { consumer, run, Message } from '../src/consumer';
+import { consumer, run, Message, stop } from '../src/consumer';
 
 test('grouped=true dispatches messages across handlers (one delivery per message)', async () => {
   const { server, port } = await startTestServer();
@@ -31,5 +31,6 @@ test('grouped=true dispatches messages across handlers (one delivery per message
   expect(c1count).toBe(1);
   expect(c2count).toBe(1);
 
+  stop();
   server.forceShutdown();
 });
