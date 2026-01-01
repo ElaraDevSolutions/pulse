@@ -5,7 +5,7 @@ Official Go client for [Pulse Broker](https://github.com/marcosrosa/pulse).
 ## Installation
 
 ```bash
-go get pulse-sdk-go
+go get github.com/ElaraDevSolutions/pulse/sdk/go
 ```
 
 ## Configuration
@@ -49,7 +49,7 @@ package main
 import (
     "context"
     "log"
-    "pulse-sdk-go/pulse"
+    "github.com/ElaraDevSolutions/pulse/sdk/go/pulse"
 )
 
 func main() {
@@ -79,7 +79,7 @@ package main
 import (
     "context"
     "fmt"
-    "pulse-sdk-go/pulse"
+    "github.com/ElaraDevSolutions/pulse/sdk/go/pulse"
 )
 
 func main() {
