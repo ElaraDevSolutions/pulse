@@ -32,5 +32,6 @@ go.work.sum
 # .vscode/
 
 # Project specific
+bin/
 data/
 .DS_Store
