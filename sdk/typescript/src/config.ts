@@ -2,86 +2,92 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import yaml from 'js-yaml';
-import { createClient } from './proto/client';
+
+export interface BrokerConfig {
+  host: string;
+  http_port: number;
+  grpc_port: number;
+  timeout_ms: number;
+}
+
+export interface ClientConfig {
+  id: string;
+  auto_commit: boolean;
+  max_retries: number;
+}
 
 export interface TopicConfig {
   name: string;
-  fifo?: boolean;
-  retention_bytes?: number;
-  retention_time?: number; // nanoseconds
+  create_if_missing?: boolean;
+  config?: {
+    fifo?: boolean;
+    retention_bytes?: number;
+  };
 }
 
 export interface PulseConfig {
-  grpcUrl: string;
-  eventTypes: string[];
-  consumerName?: string;
-  grouped?: boolean;
-  autoCommit?: boolean;
-  topics?: TopicConfig[];
+  broker: BrokerConfig;
+  client: ClientConfig;
+  topics: TopicConfig[];
 }
 
-const DEFAULTS: Partial<PulseConfig> = {
-  grpcUrl: 'localhost:50052',
-  eventTypes: ['events'],
-  grouped: true,
-  autoCommit: true,
+const DEFAULT_CONFIG: PulseConfig = {
+  broker: {
+    host: 'localhost',
+    http_port: 5555,
+    grpc_port: 5556,
+    timeout_ms: 5000,
+  },
+  client: {
+    id: 'typescript-client',
+    auto_commit: true,
+    max_retries: 3,
+  },
+  topics: [],
 };
 
 export function loadConfig(configPath?: string): PulseConfig {
   const candidates = [
     configPath,
-    path.resolve(process.cwd(), 'pulse.yml'),
     path.resolve(process.cwd(), 'pulse.yaml'),
+    path.resolve(process.cwd(), 'pulse.yml'),
     path.join(os.homedir(), '.pulse', 'pulse.yml'),
   ].filter(Boolean) as string[];
 
-  let fileCfg: Partial<PulseConfig> = {};
+  let fileCfg: any = {};
   for (const p of candidates) {
     if (p && fs.existsSync(p)) {
-      const raw = fs.readFileSync(p, 'utf8');
-      const parsed = yaml.load(raw) as any;
-      fileCfg = parsed || {};
-      break;
+      try {
+        const raw = fs.readFileSync(p, 'utf8');
+        fileCfg = yaml.load(raw) || {};
+        break;
+      } catch (e) {
+        console.warn(`Failed to load config from ${p}:`, e);
+      }
     }
   }
 
-  const envCfg: Partial<PulseConfig> = {};
-  if (process.env.PULSE_GRPC_URL) envCfg.grpcUrl = process.env.PULSE_GRPC_URL;
-  if (process.env.PULSE_EVENT_TYPES) envCfg.eventTypes = process.env.PULSE_EVENT_TYPES.split(',');
-  if (process.env.PULSE_CONSUMER_NAME) envCfg.consumerName = process.env.PULSE_CONSUMER_NAME;
-  if (process.env.PULSE_GROUPED) envCfg.grouped = process.env.PULSE_GROUPED === 'true';
-  if (process.env.PULSE_AUTOCOMMIT) envCfg.autoCommit = process.env.PULSE_AUTOCOMMIT === 'true';
+  // Deep merge defaults with file config
+  const config = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); // Deep copy
+  
+  if (fileCfg.broker) {
+    config.broker = { ...config.broker, ...fileCfg.broker };
+  }
+  if (fileCfg.client) {
+    config.client = { ...config.client, ...fileCfg.client };
+  }
+  if (fileCfg.topics) {
+    config.topics = fileCfg.topics;
+  }
 
-  const merged: PulseConfig = Object.assign({}, DEFAULTS, fileCfg, envCfg) as PulseConfig;
-  // Ensure eventTypes array exists
-  if (!merged.eventTypes) merged.eventTypes = DEFAULTS.eventTypes as string[];
-  if (merged.grouped === undefined) merged.grouped = true;
-  if (merged.autoCommit === undefined) merged.autoCommit = true;
-  return merged;
+  return config;
 }
 
-// Initialize topics from config using gRPC CreateTopic RPC.
-export async function initFromConfig(cfg: PulseConfig): Promise<void> {
-  if (!cfg.topics || cfg.topics.length === 0) return;
-  const client = createClient(cfg.grpcUrl);
+let _config: PulseConfig | null = null;
 
-  for (const t of cfg.topics) {
-    const req: any = {
-      topic: t.name || t['name'],
-      fifo: !!t.fifo,
-      retention_bytes: t.retention_bytes || 0,
-      retention_time: t.retention_time || 0,
-    };
-    await new Promise<void>((resolve, reject) => {
-      client.CreateTopic(req, (err: any, res: any) => {
-        if (err) {
-          // If topic exists the server may return an error; log and continue
-          console.warn('CreateTopic error for', req.topic, err.message || err);
-          resolve();
-        } else {
-          resolve();
-        }
-      });
-    });
+export function getConfig(): PulseConfig {
+  if (!_config) {
+    _config = loadConfig();
   }
+  return _config;
 }

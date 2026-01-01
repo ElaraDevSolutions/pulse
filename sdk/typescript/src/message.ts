@@ -1,68 +1,93 @@
 import { AsyncLocalStorage } from 'async_hooks';
 
-export interface IMessage {
-  offset: number;
-  timestamp: number;
-  payload: any;
-  headers: Record<string, string>;
-}
-
-interface MessageContext {
+export interface MessageContext {
   stub: any;
   topic: string;
-  consumerName: string;
+  consumerGroup: string;
   offset: number;
-  committed?: boolean;
+  committed: boolean;
 }
 
-const storage = new AsyncLocalStorage<MessageContext | undefined>();
+const contextStorage = new AsyncLocalStorage<MessageContext>();
 
-export function runWithContext(ctx: MessageContext, fn: () => void) {
-  return storage.run(ctx, fn as any);
-}
-
-export function getContext(): MessageContext | undefined {
-  return storage.getStore();
+export function runWithContext(ctx: MessageContext, fn: () => void | Promise<void>) {
+  return contextStorage.run(ctx, fn);
 }
 
 export async function commit() {
-  const ctx = storage.getStore();
-  if (!ctx) throw new Error('commit() called outside of a consumer handler');
-  if (ctx.committed) return;
+  const ctx = contextStorage.getStore();
+  if (!ctx) {
+    throw new Error('commit() called outside of a consumer handler');
+  }
+  
+  if (ctx.committed) {
+    return;
+  }
+
   return new Promise<void>((resolve, reject) => {
-    try {
-      ctx.stub.CommitOffset({ topic: ctx.topic, consumer_name: ctx.consumerName, offset: ctx.offset + 1 }, (err: any, res: any) => {
-        if (err) return reject(err);
-        ctx.committed = true;
-        resolve();
-      });
-    } catch (e) {
-      reject(e);
-    }
+    const req = {
+      topic: ctx.topic,
+      consumer_name: ctx.consumerGroup,
+      offset: ctx.offset + 1,
+    };
+
+    ctx.stub.CommitOffset(req, (err: any, res: any) => {
+      if (err) {
+        console.error(`Error committing offset: ${err}`);
+        return reject(err);
+      }
+      console.log(`Committed offset ${req.offset} for ${req.consumer_name}`);
+      ctx.committed = true;
+      resolve();
+    });
   });
 }
 
-export class Message implements IMessage {
-  offset: number;
-  timestamp: number;
-  payload: any;
-  headers: Record<string, string>;
+export class Message {
+  public offset: number;
+  public timestamp: number;
+  private _rawPayload: Buffer;
+  private _headers: Record<string, string>;
 
   constructor(protoMsg: any) {
-    this.offset = protoMsg.offset;
-    this.timestamp = protoMsg.timestamp;
-    this.headers = {};
-    try { this.headers = Object.assign({}, protoMsg.headers); } catch (e) { this.headers = {}; }
-    const buf = protoMsg.payload as Buffer;
-    const ptype = this.headers['payload-type'];
+    this.offset = typeof protoMsg.offset === 'string' ? parseInt(protoMsg.offset, 10) : protoMsg.offset;
+    this.timestamp = typeof protoMsg.timestamp === 'string' ? parseInt(protoMsg.timestamp, 10) : protoMsg.timestamp;
+    this._rawPayload = protoMsg.payload;
+    this._headers = protoMsg.headers || {};
+  }
+
+  get payload(): any {
+    const ptype = this._headers['payload-type'];
+    
     if (ptype === 'json') {
-      try { this.payload = JSON.parse(buf.toString()); } catch (e) { this.payload = buf; }
-    } else if (ptype === 'string') {
-      try { this.payload = buf.toString('utf8'); } catch (e) { this.payload = buf; }
-    } else if (ptype === 'bytes') {
-      this.payload = buf;
-    } else {
-      try { this.payload = JSON.parse(buf.toString()); } catch (e) { this.payload = buf; }
+      try {
+        return JSON.parse(this._rawPayload.toString('utf-8'));
+      } catch (e) {
+        return this._rawPayload;
+      }
     }
+    
+    if (ptype === 'string') {
+      return this._rawPayload.toString('utf-8');
+    }
+    
+    if (ptype === 'bytes') {
+      return this._rawPayload;
+    }
+
+    // Fallback
+    try {
+      return JSON.parse(this._rawPayload.toString('utf-8'));
+    } catch (e) {
+      return this._rawPayload;
+    }
+  }
+
+  get rawPayload(): Buffer {
+    return this._rawPayload;
+  }
+
+  get headers(): Record<string, string> {
+    return this._headers;
   }
 }

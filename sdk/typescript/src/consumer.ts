@@ -1,114 +1,187 @@
-import { PulseConfig } from './config';
+import { getConfig } from './config';
 import { createClient } from './proto/client';
-import { registerSharedHandler } from './consumerManager';
-import { randomUUID } from 'crypto';
 import { Message, runWithContext, commit } from './message';
+import { randomUUID } from 'crypto';
 
-export type EventHandler = (payload: any) => any;
+export { commit };
 
-export class Consumer {
-  private handlers: Record<string, EventHandler[]> = {};
-  private client: any;
-  private unregisterFns: Array<() => void> = [];
+interface ConsumerOptions {
+  host?: string;
+  port?: number;
+  consumerGroup?: string;
+  autoCommit?: boolean;
+  grouped?: boolean;
+}
 
-  constructor(private config: PulseConfig) {
-    this.client = createClient(config.grpcUrl);
+interface RegisteredConsumer {
+  topic: string;
+  host: string;
+  port: number;
+  group: string;
+  autoCommit: boolean;
+  handler: (msg: Message) => void | Promise<void>;
+  grouped: boolean;
+}
+
+const _consumers: RegisteredConsumer[] = [];
+
+export function consumer(
+  topic: string,
+  handler: (msg: Message) => void | Promise<void>,
+  options: ConsumerOptions = {}
+) {
+  const config = getConfig();
+  
+  const host = options.host || config.broker.host;
+  const port = options.port || config.broker.grpc_port;
+  
+  const baseGroup = options.consumerGroup || config.client.id;
+  
+  const grouped = options.grouped !== undefined ? options.grouped : true;
+  
+  let group = baseGroup;
+  if (!grouped) {
+    group = `${baseGroup}-${randomUUID().replace(/-/g, '')}`;
   }
 
-  on(eventType: string, handler: EventHandler) {
-    if (!this.handlers[eventType]) {
-      this.handlers[eventType] = [];
-    }
-    this.handlers[eventType].push(handler);
+  let autoCommit = options.autoCommit;
+  if (autoCommit === undefined) {
+    autoCommit = config.client.auto_commit;
+    // Check topic specific config
+    const topicCfg = config.topics?.find(t => t.name === topic);
+    // Note: Python SDK checks topic_config["consume"]["auto_commit"] but our config.ts 
+    // currently only has create_if_missing and config (fifo, retention).
+    // We'll stick to global client config for now unless we expand TopicConfig.
   }
 
-  async start(topic?: string, consumerName = 'default') {
-    const topicName = topic || this.config.eventTypes[0];
+  _consumers.push({
+    topic,
+    host,
+    port,
+    group,
+    autoCommit: autoCommit!,
+    handler,
+    grouped,
+  });
+}
 
-    // If grouped is enabled (default true) use shared in-process stream,
-    // otherwise create a dedicated stream (each consumer gets all messages).
-    const grouped = (this.config as any).grouped !== false;
+export async function run() {
+  // Group consumers by (topic, host, port, group)
+  const groupedMap = new Map<string, {
+    topic: string;
+    host: string;
+    port: number;
+    group: string;
+    autoCommit: boolean;
+    handlers: ((msg: Message) => void | Promise<void>)[];
+  }>();
 
-    if (grouped) {
-      // register handlers for this topic to shared stream
-      const handlers = this.handlers[topicName] || [];
-      for (const h of handlers) {
-        const unregister = registerSharedHandler(this.config.grpcUrl, topicName, consumerName, (msg: any, stub?: any, offset?: number) => {
-          // run handler with context so commit() works and support auto-commit
-          // debug: console.log('consumer.wrapper.invoke', consumerName, topicName);
-          (async () => {
-            await runWithContext({ stub: stub || this.client, topic: topicName, consumerName, offset: offset ?? msg.offset }, async () => {
-              try { const r = h(msg); if (r && typeof r.then === 'function') await r; } catch (e) { /* ignore */ }
-              if ((this.config as any).autoCommit !== false) {
-                try { await commit(); } catch (_) { /* ignore commit errors */ }
-              }
-            });
-          })().catch(() => {});
-        }, { autoCommit: (this.config as any).autoCommit });
-        this.unregisterFns.push(unregister);
-      }
-
-      // Return a promise that never resolves (stream runs until process exits)
-        return new Promise<void>(() => {});
-      }
-
-    // If grouped is explicitly false, and the consumerName equals the configured
-    // client name or the default literal, generate a unique consumer id so each
-    // consumer receives messages independently (mirrors Python behaviour).
-    if (!grouped) {
-      const base = this.config.consumerName || 'default';
-      if (consumerName === base || consumerName === 'default') {
-        consumerName = `${base}-${randomUUID().replace(/-/g, '')}`;
-      }
+  for (const c of _consumers) {
+    const key = `${c.topic}:${c.host}:${c.port}:${c.group}`;
+    if (!groupedMap.has(key)) {
+      groupedMap.set(key, {
+        topic: c.topic,
+        host: c.host,
+        port: c.port,
+        group: c.group,
+        autoCommit: c.autoCommit,
+        handlers: [],
+      });
     }
+    groupedMap.get(key)!.handlers.push(c.handler);
+  }
 
-    const req = { topic: topicName, consumer_name: consumerName, offset: 0 };
-    let stream: any = null;
+  const promises: Promise<void>[] = [];
+  for (const groupConfig of groupedMap.values()) {
+    promises.push(consumeLoopGroup(groupConfig));
+  }
+
+  // We don't await promises here to let them run in background, 
+  // but we could if we wanted to block until they all finish (which they won't).
+  // However, to keep the process alive, the user should probably await this or we return a promise that never resolves?
+  // Python's run() blocks. In Node, usually we just start things.
+  // But if the script ends, the process exits.
+  // We'll return a promise that never resolves to simulate blocking if awaited.
+  return new Promise<void>(() => {});
+}
+
+async function consumeLoopGroup(groupConfig: {
+  topic: string;
+  host: string;
+  port: number;
+  group: string;
+  autoCommit: boolean;
+  handlers: ((msg: Message) => void | Promise<void>)[];
+}) {
+  const address = `${groupConfig.host}:${groupConfig.port}`;
+  console.log(`Starting consumer for topic '${groupConfig.topic}' (group: ${groupConfig.group}) on ${address}`);
+
+  let handlerIdx = 0;
+
+  const startStream = async () => {
     try {
-      stream = this.client.Consume(req);
-    } catch (err) {
-      // If the client throws synchronously (e.g. CANCELLED), return a promise
-      // that is rejected but handled to avoid an unhandled rejection when
-      // callers don't await `start()` (tests call start() without awaiting).
-      const p = Promise.reject(err);
-      p.catch(() => {}); // swallow to avoid uncaught rejection
-      return p;
+      const client = createClient(address);
+      const req = {
+        topic: groupConfig.topic,
+        consumer_name: groupConfig.group,
+        offset: 0,
+      };
+
+      const stream = client.Consume(req);
+
+      stream.on('data', async (protoMsg: any) => {
+        // Pause stream to process message sequentially
+        stream.pause();
+
+        const msg = new Message(protoMsg);
+        
+        if (groupConfig.handlers.length === 0) {
+          stream.resume();
+          return;
+        }
+
+        const handler = groupConfig.handlers[handlerIdx % groupConfig.handlers.length];
+        handlerIdx++;
+
+        const ctx = {
+          stub: client,
+          topic: groupConfig.topic,
+          consumerGroup: groupConfig.group,
+          offset: msg.offset,
+          committed: false,
+        };
+
+        try {
+          await runWithContext(ctx, async () => {
+            await handler(msg);
+            
+            if (groupConfig.autoCommit && !ctx.committed) {
+              await commit();
+            }
+          });
+        } catch (e) {
+          console.error(`Error processing message: ${e}`);
+        } finally {
+          // Resume stream after processing
+          stream.resume();
+        }
+      });
+
+      stream.on('error', (err: any) => {
+        console.error(`Connection lost for ${groupConfig.topic}: ${err.message}. Retrying in 5s...`);
+        setTimeout(startStream, 5000);
+      });
+
+      stream.on('end', () => {
+        console.warn(`Stream ended for ${groupConfig.topic}. Retrying in 5s...`);
+        setTimeout(startStream, 5000);
+      });
+
+    } catch (e: any) {
+      console.error(`Unexpected error in consumer ${groupConfig.topic}: ${e.message}`);
+      setTimeout(startStream, 5000);
     }
+  };
 
-    stream.on('data', (msg: any) => {
-      const message = new Message(msg);
-      const handlers = this.handlers[req.topic] || [];
-      for (const h of handlers) {
-        // run handler within AsyncLocalStorage context so commit() can access stub and offset
-        (async () => {
-          try {
-            await runWithContext({ stub: this.client, topic: req.topic, consumerName, offset: message.offset }, async () => {
-              try { const r = h(message); if (r && typeof r.then === 'function') await r; } catch (e) { /* handler error ignored here */ }
-              if ((this.config as any).autoCommit !== false) {
-                try { await commit(); } catch (_) { /* ignore commit errors */ }
-              }
-            });
-          } catch (err) {
-            // ignore
-          }
-        })().catch(() => {});
-      }
-    });
-
-    const p = new Promise<void>((resolve, reject) => {
-      stream.on('end', () => resolve());
-      stream.on('error', (e: any) => reject(e));
-    });
-    // prevent unhandled rejections when callers don't await the returned promise
-    p.catch(() => {});
-    return p;
-  }
-
-  // unregister any shared handlers when this consumer is discarded
-  close() {
-    for (const u of this.unregisterFns) {
-      try { u(); } catch (e) { /* ignore */ }
-    }
-    this.unregisterFns = [];
-  }
+  startStream();
 }
