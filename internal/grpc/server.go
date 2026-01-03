@@ -109,6 +109,12 @@ func (s *Server) Consume(req *pb.ConsumeRequest, stream pb.PulseService_ConsumeS
 			return stream.Context().Err()
 		}
 
+		// Get notification channel BEFORE reading to avoid race condition (Lost Wakeup)
+		notifyChan, err := s.Broker.GetNotifyChannel(req.Topic)
+		if err != nil {
+			return status.Errorf(codes.NotFound, "topic not found: %v", err)
+		}
+
 		// Read messages
 		// We use a small batch size for streaming
 		msgs, err := s.Broker.Consume(req.Topic, currentOffset, 10)
@@ -118,11 +124,14 @@ func (s *Server) Consume(req *pb.ConsumeRequest, stream pb.PulseService_ConsumeS
 		}
 
 		if len(msgs) == 0 {
-			// No new messages, wait for notification
-			if err := s.Broker.WaitForMessage(req.Topic, stream.Context()); err != nil {
-				return nil // Context cancelled or other error, just return
+			// No new messages, wait for notification using the channel we captured BEFORE reading
+			select {
+			case <-stream.Context().Done():
+				return stream.Context().Err()
+			case <-notifyChan:
+				// New message available (or channel closed/replaced), loop back to read
+				continue
 			}
-			continue
 		}
 
 		for _, msg := range msgs {

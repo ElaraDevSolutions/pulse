@@ -202,6 +202,7 @@ func (b *Broker) Consume(topicName string, offset uint64, max int) ([]*message.M
 }
 
 // WaitForMessage waits for a new message on the topic.
+// Deprecated: Use GetNotifyChannel instead.
 func (b *Broker) WaitForMessage(topicName string, ctx context.Context) error {
 	b.mu.RLock()
 	t, exists := b.topics[topicName]
@@ -212,6 +213,19 @@ func (b *Broker) WaitForMessage(topicName string, ctx context.Context) error {
 	}
 
 	return t.WaitForMessage(ctx)
+}
+
+// GetNotifyChannel returns the notification channel for a topic.
+func (b *Broker) GetNotifyChannel(topicName string) (<-chan struct{}, error) {
+	b.mu.RLock()
+	t, exists := b.topics[topicName]
+	b.mu.RUnlock()
+
+	if !exists {
+		return nil, fmt.Errorf("topic %s does not exist", topicName)
+	}
+
+	return t.GetNotifyChannel(), nil
 }
 
 // RegisterConsumer registers a consumer for a topic.
