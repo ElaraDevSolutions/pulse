@@ -19,10 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	PulseService_Publish_FullMethodName      = "/pulse.v1.PulseService/Publish"
-	PulseService_Consume_FullMethodName      = "/pulse.v1.PulseService/Consume"
-	PulseService_CommitOffset_FullMethodName = "/pulse.v1.PulseService/CommitOffset"
-	PulseService_CreateTopic_FullMethodName  = "/pulse.v1.PulseService/CreateTopic"
+	PulseService_Publish_FullMethodName       = "/pulse.v1.PulseService/Publish"
+	PulseService_StreamPublish_FullMethodName = "/pulse.v1.PulseService/StreamPublish"
+	PulseService_Consume_FullMethodName       = "/pulse.v1.PulseService/Consume"
+	PulseService_CommitOffset_FullMethodName  = "/pulse.v1.PulseService/CommitOffset"
+	PulseService_CreateTopic_FullMethodName   = "/pulse.v1.PulseService/CreateTopic"
+	PulseService_ListTopics_FullMethodName    = "/pulse.v1.PulseService/ListTopics"
 )
 
 // PulseServiceClient is the client API for PulseService service.
@@ -31,12 +33,16 @@ const (
 type PulseServiceClient interface {
 	// Publish sends a message to a topic.
 	Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*PublishResponse, error)
+	// StreamPublish sends a stream of messages to a topic.
+	StreamPublish(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PublishRequest, PublishResponse], error)
 	// Consume reads messages from a topic as a stream.
 	Consume(ctx context.Context, in *ConsumeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ConsumeResponse], error)
 	// CommitOffset commits the offset for a consumer group.
 	CommitOffset(ctx context.Context, in *CommitOffsetRequest, opts ...grpc.CallOption) (*CommitOffsetResponse, error)
 	// CreateTopic creates a new topic.
 	CreateTopic(ctx context.Context, in *CreateTopicRequest, opts ...grpc.CallOption) (*CreateTopicResponse, error)
+	// ListTopics returns a list of all topics.
+	ListTopics(ctx context.Context, in *ListTopicsRequest, opts ...grpc.CallOption) (*ListTopicsResponse, error)
 }
 
 type pulseServiceClient struct {
@@ -57,9 +63,22 @@ func (c *pulseServiceClient) Publish(ctx context.Context, in *PublishRequest, op
 	return out, nil
 }
 
+func (c *pulseServiceClient) StreamPublish(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PublishRequest, PublishResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &PulseService_ServiceDesc.Streams[0], PulseService_StreamPublish_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[PublishRequest, PublishResponse]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type PulseService_StreamPublishClient = grpc.BidiStreamingClient[PublishRequest, PublishResponse]
+
 func (c *pulseServiceClient) Consume(ctx context.Context, in *ConsumeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ConsumeResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &PulseService_ServiceDesc.Streams[0], PulseService_Consume_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &PulseService_ServiceDesc.Streams[1], PulseService_Consume_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -96,18 +115,32 @@ func (c *pulseServiceClient) CreateTopic(ctx context.Context, in *CreateTopicReq
 	return out, nil
 }
 
+func (c *pulseServiceClient) ListTopics(ctx context.Context, in *ListTopicsRequest, opts ...grpc.CallOption) (*ListTopicsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTopicsResponse)
+	err := c.cc.Invoke(ctx, PulseService_ListTopics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PulseServiceServer is the server API for PulseService service.
 // All implementations must embed UnimplementedPulseServiceServer
 // for forward compatibility.
 type PulseServiceServer interface {
 	// Publish sends a message to a topic.
 	Publish(context.Context, *PublishRequest) (*PublishResponse, error)
+	// StreamPublish sends a stream of messages to a topic.
+	StreamPublish(grpc.BidiStreamingServer[PublishRequest, PublishResponse]) error
 	// Consume reads messages from a topic as a stream.
 	Consume(*ConsumeRequest, grpc.ServerStreamingServer[ConsumeResponse]) error
 	// CommitOffset commits the offset for a consumer group.
 	CommitOffset(context.Context, *CommitOffsetRequest) (*CommitOffsetResponse, error)
 	// CreateTopic creates a new topic.
 	CreateTopic(context.Context, *CreateTopicRequest) (*CreateTopicResponse, error)
+	// ListTopics returns a list of all topics.
+	ListTopics(context.Context, *ListTopicsRequest) (*ListTopicsResponse, error)
 	mustEmbedUnimplementedPulseServiceServer()
 }
 
@@ -121,6 +154,9 @@ type UnimplementedPulseServiceServer struct{}
 func (UnimplementedPulseServiceServer) Publish(context.Context, *PublishRequest) (*PublishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Publish not implemented")
 }
+func (UnimplementedPulseServiceServer) StreamPublish(grpc.BidiStreamingServer[PublishRequest, PublishResponse]) error {
+	return status.Error(codes.Unimplemented, "method StreamPublish not implemented")
+}
 func (UnimplementedPulseServiceServer) Consume(*ConsumeRequest, grpc.ServerStreamingServer[ConsumeResponse]) error {
 	return status.Error(codes.Unimplemented, "method Consume not implemented")
 }
@@ -129,6 +165,9 @@ func (UnimplementedPulseServiceServer) CommitOffset(context.Context, *CommitOffs
 }
 func (UnimplementedPulseServiceServer) CreateTopic(context.Context, *CreateTopicRequest) (*CreateTopicResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateTopic not implemented")
+}
+func (UnimplementedPulseServiceServer) ListTopics(context.Context, *ListTopicsRequest) (*ListTopicsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTopics not implemented")
 }
 func (UnimplementedPulseServiceServer) mustEmbedUnimplementedPulseServiceServer() {}
 func (UnimplementedPulseServiceServer) testEmbeddedByValue()                      {}
@@ -168,6 +207,13 @@ func _PulseService_Publish_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	return interceptor(ctx, in, info, handler)
 }
+
+func _PulseService_StreamPublish_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(PulseServiceServer).StreamPublish(&grpc.GenericServerStream[PublishRequest, PublishResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type PulseService_StreamPublishServer = grpc.BidiStreamingServer[PublishRequest, PublishResponse]
 
 func _PulseService_Consume_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(ConsumeRequest)
@@ -216,6 +262,24 @@ func _PulseService_CreateTopic_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PulseService_ListTopics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTopicsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PulseServiceServer).ListTopics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PulseService_ListTopics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PulseServiceServer).ListTopics(ctx, req.(*ListTopicsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PulseService_ServiceDesc is the grpc.ServiceDesc for PulseService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -235,8 +299,18 @@ var PulseService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "CreateTopic",
 			Handler:    _PulseService_CreateTopic_Handler,
 		},
+		{
+			MethodName: "ListTopics",
+			Handler:    _PulseService_ListTopics_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamPublish",
+			Handler:       _PulseService_StreamPublish_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
 		{
 			StreamName:    "Consume",
 			Handler:       _PulseService_Consume_Handler,

@@ -8,6 +8,9 @@ service PulseService {
   // Publish sends a message to a topic.
   rpc Publish(PublishRequest) returns (PublishResponse);
 
+  // StreamPublish sends a stream of messages to a topic.
+  rpc StreamPublish(stream PublishRequest) returns (stream PublishResponse);
+
   // Consume reads messages from a topic as a stream.
   rpc Consume(ConsumeRequest) returns (stream ConsumeResponse);
 

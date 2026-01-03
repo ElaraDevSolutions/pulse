@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from . import pulse_pb2 as pulse__pb2
+import pulse_pb2 as pulse__pb2
 
 GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__
@@ -39,6 +39,11 @@ class PulseServiceStub(object):
                 request_serializer=pulse__pb2.PublishRequest.SerializeToString,
                 response_deserializer=pulse__pb2.PublishResponse.FromString,
                 _registered_method=True)
+        self.StreamPublish = channel.stream_stream(
+                '/pulse.v1.PulseService/StreamPublish',
+                request_serializer=pulse__pb2.PublishRequest.SerializeToString,
+                response_deserializer=pulse__pb2.PublishResponse.FromString,
+                _registered_method=True)
         self.Consume = channel.unary_stream(
                 '/pulse.v1.PulseService/Consume',
                 request_serializer=pulse__pb2.ConsumeRequest.SerializeToString,
@@ -54,6 +59,11 @@ class PulseServiceStub(object):
                 request_serializer=pulse__pb2.CreateTopicRequest.SerializeToString,
                 response_deserializer=pulse__pb2.CreateTopicResponse.FromString,
                 _registered_method=True)
+        self.ListTopics = channel.unary_unary(
+                '/pulse.v1.PulseService/ListTopics',
+                request_serializer=pulse__pb2.ListTopicsRequest.SerializeToString,
+                response_deserializer=pulse__pb2.ListTopicsResponse.FromString,
+                _registered_method=True)
 
 
 class PulseServiceServicer(object):
@@ -61,6 +71,13 @@ class PulseServiceServicer(object):
 
     def Publish(self, request, context):
         """Publish sends a message to a topic.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StreamPublish(self, request_iterator, context):
+        """StreamPublish sends a stream of messages to a topic.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -87,11 +104,23 @@ class PulseServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListTopics(self, request, context):
+        """ListTopics returns a list of all topics.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_PulseServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Publish': grpc.unary_unary_rpc_method_handler(
                     servicer.Publish,
+                    request_deserializer=pulse__pb2.PublishRequest.FromString,
+                    response_serializer=pulse__pb2.PublishResponse.SerializeToString,
+            ),
+            'StreamPublish': grpc.stream_stream_rpc_method_handler(
+                    servicer.StreamPublish,
                     request_deserializer=pulse__pb2.PublishRequest.FromString,
                     response_serializer=pulse__pb2.PublishResponse.SerializeToString,
             ),
@@ -109,6 +138,11 @@ def add_PulseServiceServicer_to_server(servicer, server):
                     servicer.CreateTopic,
                     request_deserializer=pulse__pb2.CreateTopicRequest.FromString,
                     response_serializer=pulse__pb2.CreateTopicResponse.SerializeToString,
+            ),
+            'ListTopics': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListTopics,
+                    request_deserializer=pulse__pb2.ListTopicsRequest.FromString,
+                    response_serializer=pulse__pb2.ListTopicsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -136,6 +170,33 @@ class PulseService(object):
             request,
             target,
             '/pulse.v1.PulseService/Publish',
+            pulse__pb2.PublishRequest.SerializeToString,
+            pulse__pb2.PublishResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StreamPublish(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(
+            request_iterator,
+            target,
+            '/pulse.v1.PulseService/StreamPublish',
             pulse__pb2.PublishRequest.SerializeToString,
             pulse__pb2.PublishResponse.FromString,
             options,
@@ -219,6 +280,33 @@ class PulseService(object):
             '/pulse.v1.PulseService/CreateTopic',
             pulse__pb2.CreateTopicRequest.SerializeToString,
             pulse__pb2.CreateTopicResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListTopics(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/pulse.v1.PulseService/ListTopics',
+            pulse__pb2.ListTopicsRequest.SerializeToString,
+            pulse__pb2.ListTopicsResponse.FromString,
             options,
             channel_credentials,
             insecure,

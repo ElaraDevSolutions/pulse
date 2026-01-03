@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -40,6 +41,34 @@ func (s *Server) Publish(ctx context.Context, req *pb.PublishRequest) (*pb.Publi
 		Id:     "", // We could generate a UUID if needed
 		Offset: 0,  // TODO: Update Broker to return the assigned offset
 	}, nil
+}
+
+func (s *Server) StreamPublish(stream pb.PulseService_StreamPublishServer) error {
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		if req.Topic == "" {
+			return status.Error(codes.InvalidArgument, "topic is required")
+		}
+
+		err = s.Broker.Produce(req.Topic, req.Payload, req.Headers)
+		if err != nil {
+			return status.Errorf(codes.Internal, "failed to produce message: %v", err)
+		}
+
+		// Send ack
+		// In a high-throughput scenario, we might want to ack periodically or not at all if not requested.
+		// But for now, 1:1 ack is safer.
+		if err := stream.Send(&pb.PublishResponse{Offset: 0}); err != nil {
+			return err
+		}
+	}
 }
 
 func (s *Server) Consume(req *pb.ConsumeRequest, stream pb.PulseService_ConsumeServer) error {
