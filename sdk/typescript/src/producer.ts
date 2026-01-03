@@ -66,6 +66,50 @@ export class Producer {
     });
   }
 
+  async streamSend(messages: Array<{ topic: string; payload: any }>): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const stream = this.client.StreamPublish((err: any, res: any) => {
+        if (err) return reject(err);
+        // Stream finished
+      });
+
+      stream.on('error', (err: any) => {
+        reject(err);
+      });
+
+      stream.on('end', () => {
+        resolve();
+      });
+
+      for (const msg of messages) {
+        let data: Buffer;
+        const headers: Record<string, string> = {};
+
+        if (Buffer.isBuffer(msg.payload)) {
+          data = msg.payload;
+          headers['payload-type'] = 'bytes';
+        } else if (typeof msg.payload === 'string') {
+          data = Buffer.from(msg.payload, 'utf-8');
+          headers['payload-type'] = 'string';
+        } else if (typeof msg.payload === 'object') {
+          data = Buffer.from(JSON.stringify(msg.payload), 'utf-8');
+          headers['payload-type'] = 'json';
+        } else {
+          stream.end();
+          return reject(new Error('Payload must be Buffer, string, or object'));
+        }
+
+        stream.write({
+          topic: msg.topic,
+          payload: data,
+          headers,
+        });
+      }
+
+      stream.end();
+    });
+  }
+
   close() {
     this.client.close();
   }

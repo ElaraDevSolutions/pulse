@@ -8,6 +8,9 @@ service PulseService {
   // Publish sends a message to a topic.
   rpc Publish(PublishRequest) returns (PublishResponse);
 
+  // StreamPublish sends a stream of messages to a topic.
+  rpc StreamPublish(stream PublishRequest) returns (stream PublishResponse);
+
   // Consume reads messages from a topic as a stream.
   rpc Consume(ConsumeRequest) returns (stream ConsumeResponse);
 
@@ -16,6 +19,9 @@ service PulseService {
 
   // CreateTopic creates a new topic.
   rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse);
+
+  // ListTopics returns a list of all topics.
+  rpc ListTopics(ListTopicsRequest) returns (ListTopicsResponse);
 }
 
 message PublishRequest {
@@ -71,3 +77,4 @@ message ListTopicsRequest {}
 message ListTopicsResponse {
   repeated string topics = 1;
 }
+

@@ -370,7 +370,10 @@ type CreateTopicRequest struct {
 	Topic          string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
 	Fifo           bool                   `protobuf:"varint,2,opt,name=fifo,proto3" json:"fifo,omitempty"`
 	RetentionBytes int64                  `protobuf:"varint,3,opt,name=retention_bytes,json=retentionBytes,proto3" json:"retention_bytes,omitempty"`
-	RetentionTime  int64                  `protobuf:"varint,4,opt,name=retention_time,json=retentionTime,proto3" json:"retention_time,omitempty"` // Nanoseconds
+	RetentionTime  int64                  `protobuf:"varint,4,opt,name=retention_time,json=retentionTime,proto3" json:"retention_time,omitempty"`
+	FlushThreshold int32                  `protobuf:"varint,5,opt,name=flush_threshold,json=flushThreshold,proto3" json:"flush_threshold,omitempty"`
+	FlushInterval  int64                  `protobuf:"varint,6,opt,name=flush_interval,json=flushInterval,proto3" json:"flush_interval,omitempty"`
+	SegmentSize    int64                  `protobuf:"varint,7,opt,name=segment_size,json=segmentSize,proto3" json:"segment_size,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -433,6 +436,27 @@ func (x *CreateTopicRequest) GetRetentionTime() int64 {
 	return 0
 }
 
+func (x *CreateTopicRequest) GetFlushThreshold() int32 {
+	if x != nil {
+		return x.FlushThreshold
+	}
+	return 0
+}
+
+func (x *CreateTopicRequest) GetFlushInterval() int64 {
+	if x != nil {
+		return x.FlushInterval
+	}
+	return 0
+}
+
+func (x *CreateTopicRequest) GetSegmentSize() int64 {
+	if x != nil {
+		return x.SegmentSize
+	}
+	return 0
+}
+
 type CreateTopicResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
@@ -477,6 +501,86 @@ func (x *CreateTopicResponse) GetSuccess() bool {
 	return false
 }
 
+type ListTopicsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTopicsRequest) Reset() {
+	*x = ListTopicsRequest{}
+	mi := &file_pulse_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTopicsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTopicsRequest) ProtoMessage() {}
+
+func (x *ListTopicsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pulse_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTopicsRequest.ProtoReflect.Descriptor instead.
+func (*ListTopicsRequest) Descriptor() ([]byte, []int) {
+	return file_pulse_proto_rawDescGZIP(), []int{8}
+}
+
+type ListTopicsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Topics        []string               `protobuf:"bytes,1,rep,name=topics,proto3" json:"topics,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTopicsResponse) Reset() {
+	*x = ListTopicsResponse{}
+	mi := &file_pulse_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTopicsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTopicsResponse) ProtoMessage() {}
+
+func (x *ListTopicsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pulse_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTopicsResponse.ProtoReflect.Descriptor instead.
+func (*ListTopicsResponse) Descriptor() ([]byte, []int) {
+	return file_pulse_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ListTopicsResponse) GetTopics() []string {
+	if x != nil {
+		return x.Topics
+	}
+	return nil
+}
+
 var File_pulse_proto protoreflect.FileDescriptor
 
 const file_pulse_proto_rawDesc = "" +
@@ -509,19 +613,28 @@ const file_pulse_proto_rawDesc = "" +
 	"\rconsumer_name\x18\x02 \x01(\tR\fconsumerName\x12\x16\n" +
 	"\x06offset\x18\x03 \x01(\x04R\x06offset\"0\n" +
 	"\x14CommitOffsetResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\"\x8e\x01\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"\x81\x02\n" +
 	"\x12CreateTopicRequest\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12\x12\n" +
 	"\x04fifo\x18\x02 \x01(\bR\x04fifo\x12'\n" +
 	"\x0fretention_bytes\x18\x03 \x01(\x03R\x0eretentionBytes\x12%\n" +
-	"\x0eretention_time\x18\x04 \x01(\x03R\rretentionTime\"/\n" +
+	"\x0eretention_time\x18\x04 \x01(\x03R\rretentionTime\x12'\n" +
+	"\x0fflush_threshold\x18\x05 \x01(\x05R\x0eflushThreshold\x12%\n" +
+	"\x0eflush_interval\x18\x06 \x01(\x03R\rflushInterval\x12!\n" +
+	"\fsegment_size\x18\a \x01(\x03R\vsegmentSize\"/\n" +
 	"\x13CreateTopicResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess2\xab\x02\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"\x13\n" +
+	"\x11ListTopicsRequest\",\n" +
+	"\x12ListTopicsResponse\x12\x16\n" +
+	"\x06topics\x18\x01 \x03(\tR\x06topics2\xbe\x03\n" +
 	"\fPulseService\x12>\n" +
-	"\aPublish\x12\x18.pulse.v1.PublishRequest\x1a\x19.pulse.v1.PublishResponse\x12@\n" +
+	"\aPublish\x12\x18.pulse.v1.PublishRequest\x1a\x19.pulse.v1.PublishResponse\x12H\n" +
+	"\rStreamPublish\x12\x18.pulse.v1.PublishRequest\x1a\x19.pulse.v1.PublishResponse(\x010\x01\x12@\n" +
 	"\aConsume\x12\x18.pulse.v1.ConsumeRequest\x1a\x19.pulse.v1.ConsumeResponse0\x01\x12M\n" +
 	"\fCommitOffset\x12\x1d.pulse.v1.CommitOffsetRequest\x1a\x1e.pulse.v1.CommitOffsetResponse\x12J\n" +
-	"\vCreateTopic\x12\x1c.pulse.v1.CreateTopicRequest\x1a\x1d.pulse.v1.CreateTopicResponseB\x11Z\x0fpulse/pkg/protob\x06proto3"
+	"\vCreateTopic\x12\x1c.pulse.v1.CreateTopicRequest\x1a\x1d.pulse.v1.CreateTopicResponse\x12G\n" +
+	"\n" +
+	"ListTopics\x12\x1b.pulse.v1.ListTopicsRequest\x1a\x1c.pulse.v1.ListTopicsResponseB\x11Z\x0fpulse/pkg/protob\x06proto3"
 
 var (
 	file_pulse_proto_rawDescOnce sync.Once
@@ -535,7 +648,7 @@ func file_pulse_proto_rawDescGZIP() []byte {
 	return file_pulse_proto_rawDescData
 }
 
-var file_pulse_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_pulse_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_pulse_proto_goTypes = []any{
 	(*PublishRequest)(nil),       // 0: pulse.v1.PublishRequest
 	(*PublishResponse)(nil),      // 1: pulse.v1.PublishResponse
@@ -545,25 +658,31 @@ var file_pulse_proto_goTypes = []any{
 	(*CommitOffsetResponse)(nil), // 5: pulse.v1.CommitOffsetResponse
 	(*CreateTopicRequest)(nil),   // 6: pulse.v1.CreateTopicRequest
 	(*CreateTopicResponse)(nil),  // 7: pulse.v1.CreateTopicResponse
-	nil,                          // 8: pulse.v1.PublishRequest.HeadersEntry
-	nil,                          // 9: pulse.v1.ConsumeResponse.HeadersEntry
+	(*ListTopicsRequest)(nil),    // 8: pulse.v1.ListTopicsRequest
+	(*ListTopicsResponse)(nil),   // 9: pulse.v1.ListTopicsResponse
+	nil,                          // 10: pulse.v1.PublishRequest.HeadersEntry
+	nil,                          // 11: pulse.v1.ConsumeResponse.HeadersEntry
 }
 var file_pulse_proto_depIdxs = []int32{
-	8, // 0: pulse.v1.PublishRequest.headers:type_name -> pulse.v1.PublishRequest.HeadersEntry
-	9, // 1: pulse.v1.ConsumeResponse.headers:type_name -> pulse.v1.ConsumeResponse.HeadersEntry
-	0, // 2: pulse.v1.PulseService.Publish:input_type -> pulse.v1.PublishRequest
-	2, // 3: pulse.v1.PulseService.Consume:input_type -> pulse.v1.ConsumeRequest
-	4, // 4: pulse.v1.PulseService.CommitOffset:input_type -> pulse.v1.CommitOffsetRequest
-	6, // 5: pulse.v1.PulseService.CreateTopic:input_type -> pulse.v1.CreateTopicRequest
-	1, // 6: pulse.v1.PulseService.Publish:output_type -> pulse.v1.PublishResponse
-	3, // 7: pulse.v1.PulseService.Consume:output_type -> pulse.v1.ConsumeResponse
-	5, // 8: pulse.v1.PulseService.CommitOffset:output_type -> pulse.v1.CommitOffsetResponse
-	7, // 9: pulse.v1.PulseService.CreateTopic:output_type -> pulse.v1.CreateTopicResponse
-	6, // [6:10] is the sub-list for method output_type
-	2, // [2:6] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	10, // 0: pulse.v1.PublishRequest.headers:type_name -> pulse.v1.PublishRequest.HeadersEntry
+	11, // 1: pulse.v1.ConsumeResponse.headers:type_name -> pulse.v1.ConsumeResponse.HeadersEntry
+	0,  // 2: pulse.v1.PulseService.Publish:input_type -> pulse.v1.PublishRequest
+	0,  // 3: pulse.v1.PulseService.StreamPublish:input_type -> pulse.v1.PublishRequest
+	2,  // 4: pulse.v1.PulseService.Consume:input_type -> pulse.v1.ConsumeRequest
+	4,  // 5: pulse.v1.PulseService.CommitOffset:input_type -> pulse.v1.CommitOffsetRequest
+	6,  // 6: pulse.v1.PulseService.CreateTopic:input_type -> pulse.v1.CreateTopicRequest
+	8,  // 7: pulse.v1.PulseService.ListTopics:input_type -> pulse.v1.ListTopicsRequest
+	1,  // 8: pulse.v1.PulseService.Publish:output_type -> pulse.v1.PublishResponse
+	1,  // 9: pulse.v1.PulseService.StreamPublish:output_type -> pulse.v1.PublishResponse
+	3,  // 10: pulse.v1.PulseService.Consume:output_type -> pulse.v1.ConsumeResponse
+	5,  // 11: pulse.v1.PulseService.CommitOffset:output_type -> pulse.v1.CommitOffsetResponse
+	7,  // 12: pulse.v1.PulseService.CreateTopic:output_type -> pulse.v1.CreateTopicResponse
+	9,  // 13: pulse.v1.PulseService.ListTopics:output_type -> pulse.v1.ListTopicsResponse
+	8,  // [8:14] is the sub-list for method output_type
+	2,  // [2:8] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_pulse_proto_init() }
@@ -577,7 +696,7 @@ func file_pulse_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pulse_proto_rawDesc), len(file_pulse_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
