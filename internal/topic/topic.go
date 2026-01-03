@@ -47,12 +47,6 @@ type Topic struct {
 	// Dir is the directory where topic data (like consumer offsets) is stored.
 	Dir string
 
-	// fifoChan is used when FIFO is true.
-	fifoChan chan *message.Message
-
-	// workerChans is used when FIFO is false (slice of writing goroutines).
-	workerChans []chan *message.Message
-
 	// log is the reference to the persistent log.
 	log LogStore
 
@@ -70,6 +64,7 @@ type Topic struct {
 	// For event-driven consumption
 	notifyMu   sync.Mutex
 	notifyChan chan struct{}
+	waiters    int64
 
 	// Metrics
 	msgInCount   atomic.Uint64
@@ -98,22 +93,6 @@ func NewTopic(name string, fifo bool, retentionBytes int64, retentionTime time.D
 
 	// Load existing consumer offsets from disk
 	t.loadConsumers()
-
-	if fifo {
-		// Single channel and single goroutine for FIFO
-		t.fifoChan = make(chan *message.Message, cfg.FIFOChanSize)
-		t.wg.Add(1)
-		go t.runFIFO()
-	} else {
-		// Multiple channels/goroutines for non-FIFO (parallel writes)
-		numWorkers := cfg.NumWorkers
-		t.workerChans = make([]chan *message.Message, numWorkers)
-		for i := 0; i < numWorkers; i++ {
-			t.workerChans[i] = make(chan *message.Message, cfg.WorkerChanSize)
-			t.wg.Add(1)
-			go t.runWorker(i)
-		}
-	}
 
 	// Start retention loop if policies are set
 	if retentionBytes > 0 || retentionTime > 0 {
@@ -231,31 +210,10 @@ func (t *Topic) ReadForConsumer(consumerID string, max int) ([]*message.Message,
 	return msgs, nil
 }
 
-// runFIFO handles messages sequentially.
-func (t *Topic) runFIFO() {
-	defer t.wg.Done()
-	for msg := range t.fifoChan {
-		if _, err := t.log.Append(msg); err != nil {
-			fmt.Printf("Error appending message to topic %s: %v\n", t.Name, err)
-		} else {
-			t.broadcast()
-		}
-	}
-}
-
-// runWorker handles messages in parallel.
-func (t *Topic) runWorker(id int) {
-	defer t.wg.Done()
-	for msg := range t.workerChans[id] {
-		if _, err := t.log.Append(msg); err != nil {
-			fmt.Printf("Error appending message to topic %s (worker %d): %v\n", t.Name, id, err)
-		} else {
-			t.broadcast()
-		}
-	}
-}
-
 func (t *Topic) broadcast() {
+	if atomic.LoadInt64(&t.waiters) == 0 {
+		return
+	}
 	t.notifyMu.Lock()
 	defer t.notifyMu.Unlock()
 	close(t.notifyChan)
@@ -264,6 +222,9 @@ func (t *Topic) broadcast() {
 
 // WaitForMessage waits until a new message is available or context is cancelled.
 func (t *Topic) WaitForMessage(ctx context.Context) error {
+	atomic.AddInt64(&t.waiters, 1)
+	defer atomic.AddInt64(&t.waiters, -1)
+
 	t.notifyMu.Lock()
 	ch := t.notifyChan
 	t.notifyMu.Unlock()
@@ -279,12 +240,10 @@ func (t *Topic) WaitForMessage(ctx context.Context) error {
 // Publish sends a message to the topic.
 func (t *Topic) Publish(msg *message.Message) {
 	t.msgInCount.Add(1)
-	if t.FIFO {
-		t.fifoChan <- msg
+	if _, err := t.log.Append(msg); err != nil {
+		fmt.Printf("Error appending message to topic %s: %v\n", t.Name, err)
 	} else {
-		// Round-robin distribution for non-FIFO
-		workerID := uint64(msg.Timestamp) % uint64(len(t.workerChans))
-		t.workerChans[workerID] <- msg
+		t.broadcast()
 	}
 }
 
@@ -348,13 +307,6 @@ func (t *Topic) Close() {
 		close(t.stopChan) // Signal retention loop to stop
 	}
 
-	if t.FIFO {
-		close(t.fifoChan)
-	} else {
-		for _, ch := range t.workerChans {
-			close(ch)
-		}
-	}
 	t.wg.Wait()
 
 	// Final save of consumers

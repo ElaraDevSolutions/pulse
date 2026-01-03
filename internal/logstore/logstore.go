@@ -16,12 +16,22 @@ import (
 	"pulse/pkg/message"
 )
 
+const IndexIntervalBytes = 4096
+
+// IndexEntry maps a relative offset to a file position.
+type IndexEntry struct {
+	Offset   uint64
+	Position int64
+}
+
 // Segment represents a single log file on disk.
 type Segment struct {
-	BaseOffset uint64   // The offset of the first message in this segment
-	FilePath   string   // Absolute path to the segment file
-	File       *os.File // File handle (only open for the active segment)
-	Size       int64    // Current size of the segment in bytes
+	BaseOffset uint64       // The offset of the first message in this segment
+	FilePath   string       // Absolute path to the segment file
+	File       *os.File     // File handle (only open for the active segment)
+	IndexFile  *os.File     // Index file handle (only open for the active segment)
+	Size       int64        // Current size of the segment in bytes
+	Index      []IndexEntry // Sparse index for fast lookups
 }
 
 // AppendOnlyLog manages the persistent log with rotating segments.
@@ -124,6 +134,10 @@ func (l *AppendOnlyLog) loadSegments() error {
 			FilePath:   filepath.Join(l.Dir, entry.Name()),
 			Size:       info.Size(),
 		}
+		if err := seg.loadIndex(); err != nil {
+			// Just log error, not fatal (will fallback to scan)
+			fmt.Printf("Warning: failed to load index for %s: %v\n", seg.FilePath, err)
+		}
 		l.Segments = append(l.Segments, seg)
 		l.TotalSize += info.Size()
 	}
@@ -143,6 +157,15 @@ func (l *AppendOnlyLog) loadSegments() error {
 			return err
 		}
 		lastSeg.File = file
+
+		// Open index file
+		indexPath := strings.Replace(lastSeg.FilePath, ".log", ".index", 1)
+		idxFile, err := os.OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+		if err != nil {
+			return err
+		}
+		lastSeg.IndexFile = idxFile
+
 		l.ActiveSegment = lastSeg
 		l.bufWriter = bufio.NewWriter(file)
 
@@ -156,6 +179,36 @@ func (l *AppendOnlyLog) loadSegments() error {
 		l.GlobalOffset = 0
 	}
 
+	return nil
+}
+
+func (s *Segment) loadIndex() error {
+	indexPath := strings.Replace(s.FilePath, ".log", ".index", 1)
+	f, err := os.Open(indexPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	stat, _ := f.Stat()
+	count := stat.Size() / 16
+	s.Index = make([]IndexEntry, 0, count)
+
+	buf := make([]byte, 16)
+	for {
+		if _, err := io.ReadFull(f, buf); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		offset := binary.BigEndian.Uint64(buf[0:8])
+		pos := int64(binary.BigEndian.Uint64(buf[8:16]))
+		s.Index = append(s.Index, IndexEntry{Offset: offset, Position: pos})
+	}
 	return nil
 }
 
@@ -205,6 +258,10 @@ func (l *AppendOnlyLog) rotate() error {
 		if err := l.ActiveSegment.File.Close(); err != nil {
 			return err
 		}
+		if l.ActiveSegment.IndexFile != nil {
+			l.ActiveSegment.IndexFile.Close()
+			l.ActiveSegment.IndexFile = nil
+		}
 		l.ActiveSegment.File = nil // Release file handle
 		l.bufWriter = nil
 	}
@@ -218,16 +275,40 @@ func (l *AppendOnlyLog) rotate() error {
 		return err
 	}
 
+	// Create index file
+	indexPath := strings.Replace(path, ".log", ".index", 1)
+	idxFile, err := os.OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	if err != nil {
+		file.Close()
+		return err
+	}
+
 	newSeg := &Segment{
 		BaseOffset: l.GlobalOffset,
 		FilePath:   path,
 		File:       file,
+		IndexFile:  idxFile,
 		Size:       0,
 	}
 
 	l.ActiveSegment = newSeg
 	l.Segments = append(l.Segments, newSeg)
 	l.bufWriter = bufio.NewWriter(file)
+	return nil
+}
+
+func (l *AppendOnlyLog) appendIndex(offset uint64, pos int64) error {
+	if l.ActiveSegment.IndexFile == nil {
+		return nil
+	}
+	buf := make([]byte, 16)
+	binary.BigEndian.PutUint64(buf[0:8], offset)
+	binary.BigEndian.PutUint64(buf[8:16], uint64(pos))
+
+	if _, err := l.ActiveSegment.IndexFile.Write(buf); err != nil {
+		return err
+	}
+	l.ActiveSegment.Index = append(l.ActiveSegment.Index, IndexEntry{Offset: offset, Position: pos})
 	return nil
 }
 
@@ -246,18 +327,21 @@ func (l *AppendOnlyLog) Append(msg *message.Message) (uint64, error) {
 
 	msg.Offset = l.GlobalOffset
 
+	// Indexing
+	startPos := l.ActiveSegment.Size
+	if len(l.ActiveSegment.Index) == 0 || startPos-l.ActiveSegment.Index[len(l.ActiveSegment.Index)-1].Position >= IndexIntervalBytes {
+		if err := l.appendIndex(msg.Offset, startPos); err != nil {
+			fmt.Printf("Error appending index: %v\n", err)
+		}
+	}
+
 	// Serialize using MessagePack
 	data, err := msg.Serialize()
 	if err != nil {
 		return 0, err
 	}
 
-	// Prepare buffer: 4 bytes length + data
-	// We use a length prefix to know how many bytes to read during deserialization
 	totalLen := 4 + len(data)
-	buf := make([]byte, totalLen)
-	binary.BigEndian.PutUint32(buf[0:4], uint32(len(data)))
-	copy(buf[4:], data)
 
 	// Check if we need to rotate
 	if l.ActiveSegment.Size+int64(totalLen) > l.maxSegmentSize {
@@ -266,15 +350,19 @@ func (l *AppendOnlyLog) Append(msg *message.Message) (uint64, error) {
 		}
 	}
 
-	// Write to buffer
-	// Performance vs Durability:
-	// Writing to a buffer significantly improves performance by reducing syscalls (write).
-	// However, it introduces a risk of data loss if the process crashes before the buffer is flushed to disk.
-	// We mitigate this by flushing periodically (time-based) or after a certain number of messages (count-based).
-	n, err := l.bufWriter.Write(buf)
-	if err != nil {
+	// Write length prefix
+	lenBuf := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenBuf, uint32(len(data)))
+	if _, err := l.bufWriter.Write(lenBuf); err != nil {
 		return 0, err
 	}
+
+	// Write data
+	if _, err := l.bufWriter.Write(data); err != nil {
+		return 0, err
+	}
+
+	n := totalLen
 
 	// Update state
 	l.ActiveSegment.Size += int64(n)
@@ -292,7 +380,7 @@ func (l *AppendOnlyLog) Append(msg *message.Message) (uint64, error) {
 	return msg.Offset, nil
 }
 
-// flush writes buffered data to the OS and syncs to disk.
+// flush writes buffered data to the OS.
 // Must be called with lock held.
 func (l *AppendOnlyLog) flush() error {
 	if l.bufWriter == nil {
@@ -301,17 +389,23 @@ func (l *AppendOnlyLog) flush() error {
 	if err := l.bufWriter.Flush(); err != nil {
 		return err
 	}
-	// Sync ensures data is written to physical disk
-	if l.ActiveSegment != nil && l.ActiveSegment.File != nil {
-		if err := l.ActiveSegment.File.Sync(); err != nil {
-			return err
-		}
-	}
 	l.unflushedCount = 0
 	return nil
 }
 
-// runFlusher periodically flushes the log.
+// sync flushes to OS and then syncs to physical disk.
+// Must be called with lock held.
+func (l *AppendOnlyLog) sync() error {
+	if err := l.flush(); err != nil {
+		return err
+	}
+	if l.ActiveSegment != nil && l.ActiveSegment.File != nil {
+		return l.ActiveSegment.File.Sync()
+	}
+	return nil
+}
+
+// runFlusher periodically syncs the log to disk.
 func (l *AppendOnlyLog) runFlusher() {
 	defer l.wg.Done()
 	ticker := time.NewTicker(l.flushInterval)
@@ -320,17 +414,15 @@ func (l *AppendOnlyLog) runFlusher() {
 	for {
 		select {
 		case <-l.stopChan:
-			// Final flush before exit
+			// Final sync before exit
 			l.mu.Lock()
-			l.flush()
+			l.sync()
 			l.mu.Unlock()
 			return
 		case <-ticker.C:
 			l.mu.Lock()
-			if l.unflushedCount > 0 {
-				if err := l.flush(); err != nil {
-					fmt.Printf("Error flushing log: %v\n", err)
-				}
+			if err := l.sync(); err != nil {
+				fmt.Printf("Error syncing log: %v\n", err)
 			}
 			l.mu.Unlock()
 		}
@@ -348,6 +440,9 @@ func (l *AppendOnlyLog) Close() error {
 	if l.ActiveSegment != nil {
 		if l.bufWriter != nil {
 			l.bufWriter.Flush()
+		}
+		if err := l.ActiveSegment.File.Sync(); err != nil {
+			fmt.Printf("Error syncing on close: %v\n", err)
 		}
 		if err := l.ActiveSegment.File.Close(); err != nil {
 			return err
@@ -390,6 +485,25 @@ func (l *AppendOnlyLog) Read(offset uint64, max int) ([]*message.Message, error)
 		f, err := os.Open(seg.FilePath)
 		if err != nil {
 			return nil, err
+		}
+
+		// Use index to find start position
+		var seekPos int64 = 0
+		if len(seg.Index) > 0 {
+			// Binary search in index to find the largest offset <= target offset
+			idx := sort.Search(len(seg.Index), func(j int) bool {
+				return seg.Index[j].Offset > offset
+			})
+			if idx > 0 {
+				seekPos = seg.Index[idx-1].Position
+			}
+		}
+
+		if seekPos > 0 {
+			if _, err := f.Seek(seekPos, 0); err != nil {
+				f.Close()
+				return nil, err
+			}
 		}
 
 		decoder := NewSegmentDecoder(bufio.NewReader(f))
