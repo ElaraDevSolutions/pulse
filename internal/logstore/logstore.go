@@ -512,6 +512,16 @@ func (l *AppendOnlyLog) Read(offset uint64, max int) ([]*message.Message, error)
 			if err == io.EOF {
 				break
 			}
+			if err == io.ErrUnexpectedEOF {
+				// If this is the active segment, it might be a partial write due to buffering.
+				// Treat as EOF.
+				if seg == l.ActiveSegment {
+					break
+				}
+				// If it's a sealed segment, it's corruption.
+				f.Close()
+				return nil, err
+			}
 			if err != nil {
 				f.Close()
 				return nil, err // Stop on error (corruption?)
