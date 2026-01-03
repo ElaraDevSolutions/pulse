@@ -1,6 +1,7 @@
 package topic
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -64,6 +65,11 @@ type Topic struct {
 	// consumerOffsets maps consumerID to their last committed offset.
 	consumerOffsets map[string]uint64
 	offsetsMu       sync.RWMutex
+	offsetsDirty    bool
+
+	// For event-driven consumption
+	notifyMu   sync.Mutex
+	notifyChan chan struct{}
 
 	// Metrics
 	msgInCount   atomic.Uint64
@@ -87,6 +93,7 @@ func NewTopic(name string, fifo bool, retentionBytes int64, retentionTime time.D
 		consumerOffsets:        make(map[string]uint64),
 		startTime:              time.Now(),
 		retentionCheckInterval: cfg.RetentionCheckInterval,
+		notifyChan:             make(chan struct{}),
 	}
 
 	// Load existing consumer offsets from disk
@@ -113,6 +120,10 @@ func NewTopic(name string, fifo bool, retentionBytes int64, retentionTime time.D
 		t.wg.Add(1)
 		go t.retentionLoop()
 	}
+
+	// Start offset flusher
+	t.wg.Add(1)
+	go t.runOffsetFlusher()
 
 	return t
 }
@@ -184,14 +195,8 @@ func (t *Topic) CommitOffset(consumerID string, offset uint64) error {
 	defer t.offsetsMu.Unlock()
 
 	t.consumerOffsets[consumerID] = offset
-
-	// Persist to disk
-	data, err := json.MarshalIndent(t.consumerOffsets, "", "  ")
-	if err != nil {
-		return err
-	}
-	path := filepath.Join(t.Dir, "consumers.json")
-	return os.WriteFile(path, data, 0644)
+	t.offsetsDirty = true
+	return nil
 }
 
 // ReadForConsumer reads messages starting from the consumer's last committed offset.
@@ -232,6 +237,8 @@ func (t *Topic) runFIFO() {
 	for msg := range t.fifoChan {
 		if _, err := t.log.Append(msg); err != nil {
 			fmt.Printf("Error appending message to topic %s: %v\n", t.Name, err)
+		} else {
+			t.broadcast()
 		}
 	}
 }
@@ -242,7 +249,30 @@ func (t *Topic) runWorker(id int) {
 	for msg := range t.workerChans[id] {
 		if _, err := t.log.Append(msg); err != nil {
 			fmt.Printf("Error appending message to topic %s (worker %d): %v\n", t.Name, id, err)
+		} else {
+			t.broadcast()
 		}
+	}
+}
+
+func (t *Topic) broadcast() {
+	t.notifyMu.Lock()
+	defer t.notifyMu.Unlock()
+	close(t.notifyChan)
+	t.notifyChan = make(chan struct{})
+}
+
+// WaitForMessage waits until a new message is available or context is cancelled.
+func (t *Topic) WaitForMessage(ctx context.Context) error {
+	t.notifyMu.Lock()
+	ch := t.notifyChan
+	t.notifyMu.Unlock()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ch:
+		return nil
 	}
 }
 
@@ -271,6 +301,39 @@ func (t *Topic) retentionLoop() {
 		case <-ticker.C:
 			if err := t.log.RunRetention(t.RetentionBytes, t.RetentionTime); err != nil {
 				fmt.Printf("Error running retention for topic %s: %v\n", t.Name, err)
+			}
+		}
+	}
+}
+
+// runOffsetFlusher periodically saves consumer offsets to disk.
+func (t *Topic) runOffsetFlusher() {
+	defer t.wg.Done()
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-t.stopChan:
+			return
+		case <-ticker.C:
+			t.offsetsMu.Lock()
+			if !t.offsetsDirty {
+				t.offsetsMu.Unlock()
+				continue
+			}
+			data, err := json.MarshalIndent(t.consumerOffsets, "", "  ")
+			t.offsetsDirty = false
+			t.offsetsMu.Unlock()
+
+			if err != nil {
+				fmt.Printf("Error marshaling consumers for topic %s: %v\n", t.Name, err)
+				continue
+			}
+
+			path := filepath.Join(t.Dir, "consumers.json")
+			if err := os.WriteFile(path, data, 0644); err != nil {
+				fmt.Printf("Error saving consumers for topic %s: %v\n", t.Name, err)
 			}
 		}
 	}

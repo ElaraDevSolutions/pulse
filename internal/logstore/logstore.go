@@ -392,7 +392,7 @@ func (l *AppendOnlyLog) Read(offset uint64, max int) ([]*message.Message, error)
 			return nil, err
 		}
 
-		decoder := NewSegmentDecoder(f)
+		decoder := NewSegmentDecoder(bufio.NewReader(f))
 		for {
 			m, err := decoder.Decode()
 			if err == io.EOF {
