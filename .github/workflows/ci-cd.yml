@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'sdk/**'
+      - 'test/**'
   workflow_dispatch:
     inputs:
       force_version:
