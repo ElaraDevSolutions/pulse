@@ -116,8 +116,8 @@ func (s *Server) Consume(req *pb.ConsumeRequest, stream pb.PulseService_ConsumeS
 		}
 
 		// Read messages
-		// We use a small batch size for streaming
-		msgs, err := s.Broker.Consume(req.Topic, currentOffset, 10)
+		// We use a larger batch size for streaming to improve throughput
+		msgs, err := s.Broker.Consume(req.Topic, currentOffset, 1000)
 		if err != nil {
 			// If topic doesn't exist, return error
 			return status.Errorf(codes.NotFound, "topic not found or error reading: %v", err)

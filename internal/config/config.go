@@ -35,8 +35,8 @@ func NewDefault() *Config {
 		DefaultRetentionBytes:  1024 * 1024 * 1024, // 1GB
 		DefaultRetentionTime:   7 * 24 * time.Hour,
 		DefaultSegmentSize:     128 * 1024 * 1024, // 128MB
-		DefaultFlushThreshold:  100,
-		DefaultFlushInterval:   1 * time.Second,
+		DefaultFlushThreshold:  2000,              // Batch writes before syscall
+		DefaultFlushInterval:   100 * time.Millisecond,
 		NumWorkers:             5,
 		FIFOChanSize:           100,
 		WorkerChanSize:         100,
