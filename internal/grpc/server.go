@@ -83,8 +83,10 @@ func (s *Server) Consume(req *pb.ConsumeRequest, stream pb.PulseService_ConsumeS
 		}
 
 		if len(msgs) == 0 {
-			// No new messages, sleep and poll again
-			time.Sleep(100 * time.Millisecond)
+			// No new messages, wait for notification
+			if err := s.Broker.WaitForMessage(req.Topic, stream.Context()); err != nil {
+				return nil // Context cancelled or other error, just return
+			}
 			continue
 		}
 

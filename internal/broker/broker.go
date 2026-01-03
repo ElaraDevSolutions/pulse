@@ -1,6 +1,7 @@
 package broker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -198,6 +199,19 @@ func (b *Broker) Consume(topicName string, offset uint64, max int) ([]*message.M
 	}
 
 	return t.Read(offset, max)
+}
+
+// WaitForMessage waits for a new message on the topic.
+func (b *Broker) WaitForMessage(topicName string, ctx context.Context) error {
+	b.mu.RLock()
+	t, exists := b.topics[topicName]
+	b.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("topic %s does not exist", topicName)
+	}
+
+	return t.WaitForMessage(ctx)
 }
 
 // RegisterConsumer registers a consumer for a topic.
