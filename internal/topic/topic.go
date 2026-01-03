@@ -211,20 +211,23 @@ func (t *Topic) ReadForConsumer(consumerID string, max int) ([]*message.Message,
 }
 
 func (t *Topic) broadcast() {
-	if atomic.LoadInt64(&t.waiters) == 0 {
-		return
-	}
 	t.notifyMu.Lock()
 	defer t.notifyMu.Unlock()
 	close(t.notifyChan)
 	t.notifyChan = make(chan struct{})
 }
 
-// WaitForMessage waits until a new message is available or context is cancelled.
-func (t *Topic) WaitForMessage(ctx context.Context) error {
-	atomic.AddInt64(&t.waiters, 1)
-	defer atomic.AddInt64(&t.waiters, -1)
+// GetNotifyChannel returns the current notification channel.
+// Callers should get this BEFORE checking for messages to avoid race conditions.
+func (t *Topic) GetNotifyChannel() <-chan struct{} {
+	t.notifyMu.Lock()
+	defer t.notifyMu.Unlock()
+	return t.notifyChan
+}
 
+// WaitForMessage waits until a new message is available or context is cancelled.
+// Deprecated: Use GetNotifyChannel pattern instead.
+func (t *Topic) WaitForMessage(ctx context.Context) error {
 	t.notifyMu.Lock()
 	ch := t.notifyChan
 	t.notifyMu.Unlock()
