@@ -104,6 +104,9 @@ func NewTopic(name string, fifo bool, retentionBytes int64, retentionTime time.D
 	t.wg.Add(1)
 	go t.runOffsetFlusher()
 
+	// Register flush callback to notify consumers when data is actually on disk
+	log.SetFlushCallback(t.broadcast)
+
 	return t
 }
 

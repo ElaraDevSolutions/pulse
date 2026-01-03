@@ -54,6 +54,7 @@ type AppendOnlyLog struct {
 	unflushedCount int
 	stopChan       chan struct{}
 	wg             sync.WaitGroup
+	onFlush        func() // Callback when data is flushed to OS
 }
 
 // Config holds configuration for the LogStore.
@@ -61,6 +62,13 @@ type Config struct {
 	FlushInterval  time.Duration
 	FlushThreshold int
 	MaxSegmentSize int64
+}
+
+// SetFlushCallback sets a function to be called whenever data is flushed to the OS.
+func (l *AppendOnlyLog) SetFlushCallback(fn func()) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.onFlush = fn
 }
 
 // New creates or opens an AppendOnlyLog in the specified directory.
@@ -386,10 +394,16 @@ func (l *AppendOnlyLog) flush() error {
 	if l.bufWriter == nil {
 		return nil
 	}
+	if l.unflushedCount == 0 {
+		return nil
+	}
 	if err := l.bufWriter.Flush(); err != nil {
 		return err
 	}
 	l.unflushedCount = 0
+	if l.onFlush != nil {
+		l.onFlush()
+	}
 	return nil
 }
 
