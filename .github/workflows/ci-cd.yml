@@ -182,3 +182,11 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/pulse:${{ needs.release.outputs.new_tag }}
             ${{ secrets.DOCKERHUB_USERNAME }}/pulse:latest
+
+      - name: Update Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/pulse
+          readme-filepath: ./DOCKER.md
