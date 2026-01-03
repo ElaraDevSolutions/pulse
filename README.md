@@ -2,6 +2,9 @@
 
 Pulse is a small, honest message broker for learning and lightweight projects. This README explains how to build.
 
+**Releases**
+You can find the latest pre-built binaries for Linux, Windows, and macOS on the [Releases page](https://github.com/ElaraDevSolutions/pulse/releases).
+
 **Install / Uninstall (scripts)**
 - **Install (system):** [scripts/install.sh](scripts/install.sh) installs the CLI/system components (if provided on your platform).
 - **Uninstall:** [scripts/uninstall.sh](scripts/uninstall.sh) removes installed components.
