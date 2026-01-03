@@ -56,7 +56,7 @@ message CommitOffsetResponse {
 }
 
 message CreateTopicRequest {
-  string name = 1;
+  string topic = 1;
   bool fifo = 2;
   int64 retention_bytes = 3;
   int64 retention_time = 4;
@@ -75,17 +75,3 @@ message ListTopicsResponse {
   repeated string topics = 1;
 }
 
-message CommitOffsetResponse {
-  bool success = 1;
-}
-
-message CreateTopicRequest {
-  string topic = 1;
-  bool fifo = 2;
-  int64 retention_bytes = 3;
-  int64 retention_time = 4; // Nanoseconds
-}
-
-message CreateTopicResponse {
-  bool success = 1;
-}

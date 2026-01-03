@@ -10,15 +10,15 @@ const bundledProto = path.resolve(__dirname, 'pulse.proto');
 const repoProto = path.resolve(__dirname, '../../../../internal/api/proto/pulse.proto');
 
 // Try to update proto from server
-try {
-  const host = process.env.PULSE_HOST || 'localhost';
-  const port = process.env.PULSE_HTTP_PORT || '5555';
-  const url = `http://${host}:${port}/proto`;
-  // Use curl to download with a short timeout (1s)
-  execSync(`curl -s -m 1 -o "${cachedProto}" "${url}"`, { stdio: 'ignore' });
-} catch (e) {
-  // Failed to fetch, will fall back to existing files
-}
+// try {
+//   const host = process.env.PULSE_HOST || 'localhost';
+//   const port = process.env.PULSE_HTTP_PORT || '5555';
+//   const url = `http://${host}:${port}/proto`;
+//   // Use curl to download with a short timeout (1s)
+//   execSync(`curl -s -m 1 -o "${cachedProto}" "${url}"`, { stdio: 'ignore' });
+// } catch (e) {
+//   // Failed to fetch, will fall back to existing files
+// }
 
 let PROTO_PATH = bundledProto;
 if (fs.existsSync(cachedProto)) {
@@ -28,7 +28,7 @@ if (fs.existsSync(cachedProto)) {
   PROTO_PATH = repoProto;
 }
 
-const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
+export const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,
   longs: String,
   enums: String,
@@ -36,7 +36,7 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   oneofs: true,
 });
 
-const loaded: any = (grpc.loadPackageDefinition(packageDefinition) as any).pulse.v1;
+export const loaded: any = (grpc.loadPackageDefinition(packageDefinition) as any).pulse.v1;
 
 export type PulseClient = any;
 

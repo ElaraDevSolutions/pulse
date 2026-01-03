@@ -56,9 +56,18 @@ message CreateTopicRequest {
   string topic = 1;
   bool fifo = 2;
   int64 retention_bytes = 3;
-  int64 retention_time = 4; // Nanoseconds
+  int64 retention_time = 4;
+  int32 flush_threshold = 5;
+  int64 flush_interval = 6;
+  int64 segment_size = 7;
 }
 
 message CreateTopicResponse {
   bool success = 1;
+}
+
+message ListTopicsRequest {}
+
+message ListTopicsResponse {
+  repeated string topics = 1;
 }
