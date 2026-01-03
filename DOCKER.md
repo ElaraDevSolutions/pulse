@@ -7,7 +7,7 @@ Pulse is a lightweight, honest message broker designed for learning and small pr
 Run the broker with default settings:
 
 ```bash
-docker run -d -p 5555:5555 -p 5556:5556 <username>/pulse:latest
+docker run -d -p 5555:5555 -p 5556:5556 marcosstefani/pulse:latest
 ```
 
 ## Configuration
@@ -43,7 +43,7 @@ docker run -d \
   -v pulse-data:/data \
   -p 5555:5555 \
   -p 5556:5556 \
-  <username>/pulse:latest
+  marcosstefani/pulse:latest
 ```
 
 ## Examples
@@ -58,7 +58,7 @@ docker run -d \
   -p 5555:5555 \
   -p 5556:5556 \
   -p 8080:8080 \
-  <username>/pulse:latest
+  marcosstefani/pulse:latest
 ```
 
 Access the UI at `http://localhost:8080`.
@@ -73,5 +73,5 @@ docker run -d \
   -e PULSE_GRPC_PORT=6001 \
   -p 6000:6000 \
   -p 6001:6001 \
-  <username>/pulse:latest
+  marcosstefani/pulse:latest
 ```
