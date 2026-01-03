@@ -103,16 +103,16 @@ jobs:
           mkdir -p dist
           
           echo "Building for Linux (amd64)..."
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-linux-amd64 cmd/broker/main.go
-          
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-linux-amd64 ./cmd/broker
+
           echo "Building for Windows (amd64)..."
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-windows-amd64.exe cmd/broker/main.go
-          
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-windows-amd64.exe ./cmd/broker
+
           echo "Building for macOS (amd64)..."
-          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-darwin-amd64 cmd/broker/main.go
-          
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-darwin-amd64 ./cmd/broker
+
           echo "Building for macOS (arm64)..."
-          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-darwin-arm64 cmd/broker/main.go
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-darwin-arm64 ./cmd/broker
 
       - name: Create Release
         uses: softprops/action-gh-release@v1

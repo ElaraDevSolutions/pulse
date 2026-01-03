@@ -239,7 +239,7 @@ func startDaemon() {
 	cmd := exec.Command(os.Args[0], args...)
 
 	// Detach process
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	setSysProcAttr(cmd)
 
 	// Redirect output to log file
 	logF, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
