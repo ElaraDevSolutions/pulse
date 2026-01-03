@@ -5,6 +5,9 @@ Pulse is a small, honest message broker for learning and lightweight projects. T
 **Releases**
 You can find the latest pre-built binaries for Linux, Windows, and macOS on the [Releases page](https://github.com/ElaraDevSolutions/pulse/releases).
 
+**Docker**
+You can run Pulse using Docker. For more details and configuration options, see [DOCKER.md](DOCKER.md).
+
 **Install / Uninstall (scripts)**
 - **Install (system):** [scripts/install.sh](scripts/install.sh) installs the CLI/system components (if provided on your platform).
 - **Uninstall:** [scripts/uninstall.sh](scripts/uninstall.sh) removes installed components.
