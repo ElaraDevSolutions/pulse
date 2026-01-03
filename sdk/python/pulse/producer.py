@@ -91,9 +91,9 @@ class Producer:
                 )
 
         try:
-            # Consume the response stream (acks)
-            for _ in self.stub.StreamPublish(request_generator()):
-                pass
+            # Get the single summary response
+            summary = self.stub.StreamPublish(request_generator())
+            return summary
         except grpc.RpcError as e:
             raise e
 

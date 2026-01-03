@@ -9,7 +9,7 @@ service PulseService {
   rpc Publish(PublishRequest) returns (PublishResponse);
 
   // StreamPublish sends a stream of messages to a topic.
-  rpc StreamPublish(stream PublishRequest) returns (stream PublishResponse);
+  rpc StreamPublish(stream PublishRequest) returns (PublishSummary);
 
   // Consume reads messages from a topic as a stream.
   rpc Consume(ConsumeRequest) returns (stream ConsumeResponse);
@@ -33,6 +33,12 @@ message PublishRequest {
 message PublishResponse {
   string id = 1;
   uint64 offset = 2;
+}
+
+message PublishSummary {
+  uint64 succeeded_count = 1;
+  uint64 failed_count = 2;
+  string last_error = 3;
 }
 
 message ConsumeRequest {

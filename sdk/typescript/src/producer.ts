@@ -66,19 +66,15 @@ export class Producer {
     });
   }
 
-  async streamSend(messages: Array<{ topic: string; payload: any }>): Promise<void> {
+  async streamSend(messages: Array<{ topic: string; payload: any }>): Promise<any> {
     return new Promise((resolve, reject) => {
-      const stream = this.client.StreamPublish((err: any, res: any) => {
+      const stream = this.client.StreamPublish((err: any, summary: any) => {
         if (err) return reject(err);
-        // Stream finished
+        resolve(summary);
       });
 
       stream.on('error', (err: any) => {
         reject(err);
-      });
-
-      stream.on('end', () => {
-        resolve();
       });
 
       for (const msg of messages) {

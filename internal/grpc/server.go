@@ -44,29 +44,35 @@ func (s *Server) Publish(ctx context.Context, req *pb.PublishRequest) (*pb.Publi
 }
 
 func (s *Server) StreamPublish(stream pb.PulseService_StreamPublishServer) error {
+	var succeeded uint64
+	var failed uint64
+	var lastErr string
+
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
-			return nil
+			return stream.SendAndClose(&pb.PublishSummary{
+				SucceededCount: succeeded,
+				FailedCount:    failed,
+				LastError:      lastErr,
+			})
 		}
 		if err != nil {
 			return err
 		}
 
 		if req.Topic == "" {
-			return status.Error(codes.InvalidArgument, "topic is required")
+			failed++
+			lastErr = "topic is required"
+			continue
 		}
 
 		err = s.Broker.Produce(req.Topic, req.Payload, req.Headers)
 		if err != nil {
-			return status.Errorf(codes.Internal, "failed to produce message: %v", err)
-		}
-
-		// Send ack
-		// In a high-throughput scenario, we might want to ack periodically or not at all if not requested.
-		// But for now, 1:1 ack is safer.
-		if err := stream.Send(&pb.PublishResponse{Offset: 0}); err != nil {
-			return err
+			failed++
+			lastErr = err.Error()
+		} else {
+			succeeded++
 		}
 	}
 }
