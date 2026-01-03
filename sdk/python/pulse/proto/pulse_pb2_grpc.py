@@ -39,10 +39,10 @@ class PulseServiceStub(object):
                 request_serializer=pulse__pb2.PublishRequest.SerializeToString,
                 response_deserializer=pulse__pb2.PublishResponse.FromString,
                 _registered_method=True)
-        self.StreamPublish = channel.stream_stream(
+        self.StreamPublish = channel.stream_unary(
                 '/pulse.v1.PulseService/StreamPublish',
                 request_serializer=pulse__pb2.PublishRequest.SerializeToString,
-                response_deserializer=pulse__pb2.PublishResponse.FromString,
+                response_deserializer=pulse__pb2.PublishSummary.FromString,
                 _registered_method=True)
         self.Consume = channel.unary_stream(
                 '/pulse.v1.PulseService/Consume',
@@ -119,10 +119,10 @@ def add_PulseServiceServicer_to_server(servicer, server):
                     request_deserializer=pulse__pb2.PublishRequest.FromString,
                     response_serializer=pulse__pb2.PublishResponse.SerializeToString,
             ),
-            'StreamPublish': grpc.stream_stream_rpc_method_handler(
+            'StreamPublish': grpc.stream_unary_rpc_method_handler(
                     servicer.StreamPublish,
                     request_deserializer=pulse__pb2.PublishRequest.FromString,
-                    response_serializer=pulse__pb2.PublishResponse.SerializeToString,
+                    response_serializer=pulse__pb2.PublishSummary.SerializeToString,
             ),
             'Consume': grpc.unary_stream_rpc_method_handler(
                     servicer.Consume,
@@ -193,12 +193,12 @@ class PulseService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.stream_stream(
+        return grpc.experimental.stream_unary(
             request_iterator,
             target,
             '/pulse.v1.PulseService/StreamPublish',
             pulse__pb2.PublishRequest.SerializeToString,
-            pulse__pb2.PublishResponse.FromString,
+            pulse__pb2.PublishSummary.FromString,
             options,
             channel_credentials,
             insecure,

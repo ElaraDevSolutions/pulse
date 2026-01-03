@@ -34,6 +34,26 @@ def test_producer_send_bytes():
             req = args[0]
             assert req.payload == b"raw-data"
 
+def test_producer_stream_send():
+    with patch('pulse.producer.grpc.insecure_channel'):
+        mock_stub = MagicMock()
+        with patch('pulse.producer.pulse_pb2_grpc.PulseServiceStub', return_value=mock_stub):
+            p = pulse.Producer()
+            
+            # Mock the return value of StreamPublish
+            mock_summary = pulse_pb2.PublishSummary(
+                succeeded_count=2,
+                failed_count=0,
+                last_error=""
+            )
+            mock_stub.StreamPublish.return_value = mock_summary
+            
+            messages = [("topic1", b"msg1"), ("topic1", b"msg2")]
+            result = p.stream_send(messages)
+            
+            assert result == mock_summary
+            mock_stub.StreamPublish.assert_called_once()
+
 # --- Consumer Tests ---
 
 def test_consumer_decorator_registration():

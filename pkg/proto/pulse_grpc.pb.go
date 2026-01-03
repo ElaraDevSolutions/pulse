@@ -34,7 +34,7 @@ type PulseServiceClient interface {
 	// Publish sends a message to a topic.
 	Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*PublishResponse, error)
 	// StreamPublish sends a stream of messages to a topic.
-	StreamPublish(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PublishRequest, PublishResponse], error)
+	StreamPublish(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[PublishRequest, PublishSummary], error)
 	// Consume reads messages from a topic as a stream.
 	Consume(ctx context.Context, in *ConsumeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ConsumeResponse], error)
 	// CommitOffset commits the offset for a consumer group.
@@ -63,18 +63,18 @@ func (c *pulseServiceClient) Publish(ctx context.Context, in *PublishRequest, op
 	return out, nil
 }
 
-func (c *pulseServiceClient) StreamPublish(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PublishRequest, PublishResponse], error) {
+func (c *pulseServiceClient) StreamPublish(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[PublishRequest, PublishSummary], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &PulseService_ServiceDesc.Streams[0], PulseService_StreamPublish_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[PublishRequest, PublishResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[PublishRequest, PublishSummary]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type PulseService_StreamPublishClient = grpc.BidiStreamingClient[PublishRequest, PublishResponse]
+type PulseService_StreamPublishClient = grpc.ClientStreamingClient[PublishRequest, PublishSummary]
 
 func (c *pulseServiceClient) Consume(ctx context.Context, in *ConsumeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ConsumeResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -132,7 +132,7 @@ type PulseServiceServer interface {
 	// Publish sends a message to a topic.
 	Publish(context.Context, *PublishRequest) (*PublishResponse, error)
 	// StreamPublish sends a stream of messages to a topic.
-	StreamPublish(grpc.BidiStreamingServer[PublishRequest, PublishResponse]) error
+	StreamPublish(grpc.ClientStreamingServer[PublishRequest, PublishSummary]) error
 	// Consume reads messages from a topic as a stream.
 	Consume(*ConsumeRequest, grpc.ServerStreamingServer[ConsumeResponse]) error
 	// CommitOffset commits the offset for a consumer group.
@@ -154,7 +154,7 @@ type UnimplementedPulseServiceServer struct{}
 func (UnimplementedPulseServiceServer) Publish(context.Context, *PublishRequest) (*PublishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Publish not implemented")
 }
-func (UnimplementedPulseServiceServer) StreamPublish(grpc.BidiStreamingServer[PublishRequest, PublishResponse]) error {
+func (UnimplementedPulseServiceServer) StreamPublish(grpc.ClientStreamingServer[PublishRequest, PublishSummary]) error {
 	return status.Error(codes.Unimplemented, "method StreamPublish not implemented")
 }
 func (UnimplementedPulseServiceServer) Consume(*ConsumeRequest, grpc.ServerStreamingServer[ConsumeResponse]) error {
@@ -209,11 +209,11 @@ func _PulseService_Publish_Handler(srv interface{}, ctx context.Context, dec fun
 }
 
 func _PulseService_StreamPublish_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(PulseServiceServer).StreamPublish(&grpc.GenericServerStream[PublishRequest, PublishResponse]{ServerStream: stream})
+	return srv.(PulseServiceServer).StreamPublish(&grpc.GenericServerStream[PublishRequest, PublishSummary]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type PulseService_StreamPublishServer = grpc.BidiStreamingServer[PublishRequest, PublishResponse]
+type PulseService_StreamPublishServer = grpc.ClientStreamingServer[PublishRequest, PublishSummary]
 
 func _PulseService_Consume_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(ConsumeRequest)
@@ -308,7 +308,6 @@ var PulseService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "StreamPublish",
 			Handler:       _PulseService_StreamPublish_Handler,
-			ServerStreams: true,
 			ClientStreams: true,
 		},
 		{

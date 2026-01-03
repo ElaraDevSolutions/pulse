@@ -133,6 +133,66 @@ func (x *PublishResponse) GetOffset() uint64 {
 	return 0
 }
 
+type PublishSummary struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	SucceededCount uint64                 `protobuf:"varint,1,opt,name=succeeded_count,json=succeededCount,proto3" json:"succeeded_count,omitempty"`
+	FailedCount    uint64                 `protobuf:"varint,2,opt,name=failed_count,json=failedCount,proto3" json:"failed_count,omitempty"`
+	LastError      string                 `protobuf:"bytes,3,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *PublishSummary) Reset() {
+	*x = PublishSummary{}
+	mi := &file_pulse_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishSummary) ProtoMessage() {}
+
+func (x *PublishSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_pulse_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishSummary.ProtoReflect.Descriptor instead.
+func (*PublishSummary) Descriptor() ([]byte, []int) {
+	return file_pulse_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *PublishSummary) GetSucceededCount() uint64 {
+	if x != nil {
+		return x.SucceededCount
+	}
+	return 0
+}
+
+func (x *PublishSummary) GetFailedCount() uint64 {
+	if x != nil {
+		return x.FailedCount
+	}
+	return 0
+}
+
+func (x *PublishSummary) GetLastError() string {
+	if x != nil {
+		return x.LastError
+	}
+	return ""
+}
+
 type ConsumeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Topic         string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
@@ -144,7 +204,7 @@ type ConsumeRequest struct {
 
 func (x *ConsumeRequest) Reset() {
 	*x = ConsumeRequest{}
-	mi := &file_pulse_proto_msgTypes[2]
+	mi := &file_pulse_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -156,7 +216,7 @@ func (x *ConsumeRequest) String() string {
 func (*ConsumeRequest) ProtoMessage() {}
 
 func (x *ConsumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pulse_proto_msgTypes[2]
+	mi := &file_pulse_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -169,7 +229,7 @@ func (x *ConsumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsumeRequest.ProtoReflect.Descriptor instead.
 func (*ConsumeRequest) Descriptor() ([]byte, []int) {
-	return file_pulse_proto_rawDescGZIP(), []int{2}
+	return file_pulse_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ConsumeRequest) GetTopic() string {
@@ -205,7 +265,7 @@ type ConsumeResponse struct {
 
 func (x *ConsumeResponse) Reset() {
 	*x = ConsumeResponse{}
-	mi := &file_pulse_proto_msgTypes[3]
+	mi := &file_pulse_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -217,7 +277,7 @@ func (x *ConsumeResponse) String() string {
 func (*ConsumeResponse) ProtoMessage() {}
 
 func (x *ConsumeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pulse_proto_msgTypes[3]
+	mi := &file_pulse_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -230,7 +290,7 @@ func (x *ConsumeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsumeResponse.ProtoReflect.Descriptor instead.
 func (*ConsumeResponse) Descriptor() ([]byte, []int) {
-	return file_pulse_proto_rawDescGZIP(), []int{3}
+	return file_pulse_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ConsumeResponse) GetOffset() uint64 {
@@ -272,7 +332,7 @@ type CommitOffsetRequest struct {
 
 func (x *CommitOffsetRequest) Reset() {
 	*x = CommitOffsetRequest{}
-	mi := &file_pulse_proto_msgTypes[4]
+	mi := &file_pulse_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -284,7 +344,7 @@ func (x *CommitOffsetRequest) String() string {
 func (*CommitOffsetRequest) ProtoMessage() {}
 
 func (x *CommitOffsetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pulse_proto_msgTypes[4]
+	mi := &file_pulse_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -297,7 +357,7 @@ func (x *CommitOffsetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommitOffsetRequest.ProtoReflect.Descriptor instead.
 func (*CommitOffsetRequest) Descriptor() ([]byte, []int) {
-	return file_pulse_proto_rawDescGZIP(), []int{4}
+	return file_pulse_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CommitOffsetRequest) GetTopic() string {
@@ -330,7 +390,7 @@ type CommitOffsetResponse struct {
 
 func (x *CommitOffsetResponse) Reset() {
 	*x = CommitOffsetResponse{}
-	mi := &file_pulse_proto_msgTypes[5]
+	mi := &file_pulse_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -342,7 +402,7 @@ func (x *CommitOffsetResponse) String() string {
 func (*CommitOffsetResponse) ProtoMessage() {}
 
 func (x *CommitOffsetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pulse_proto_msgTypes[5]
+	mi := &file_pulse_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -355,7 +415,7 @@ func (x *CommitOffsetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommitOffsetResponse.ProtoReflect.Descriptor instead.
 func (*CommitOffsetResponse) Descriptor() ([]byte, []int) {
-	return file_pulse_proto_rawDescGZIP(), []int{5}
+	return file_pulse_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CommitOffsetResponse) GetSuccess() bool {
@@ -380,7 +440,7 @@ type CreateTopicRequest struct {
 
 func (x *CreateTopicRequest) Reset() {
 	*x = CreateTopicRequest{}
-	mi := &file_pulse_proto_msgTypes[6]
+	mi := &file_pulse_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -392,7 +452,7 @@ func (x *CreateTopicRequest) String() string {
 func (*CreateTopicRequest) ProtoMessage() {}
 
 func (x *CreateTopicRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pulse_proto_msgTypes[6]
+	mi := &file_pulse_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -405,7 +465,7 @@ func (x *CreateTopicRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTopicRequest.ProtoReflect.Descriptor instead.
 func (*CreateTopicRequest) Descriptor() ([]byte, []int) {
-	return file_pulse_proto_rawDescGZIP(), []int{6}
+	return file_pulse_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CreateTopicRequest) GetTopic() string {
@@ -466,7 +526,7 @@ type CreateTopicResponse struct {
 
 func (x *CreateTopicResponse) Reset() {
 	*x = CreateTopicResponse{}
-	mi := &file_pulse_proto_msgTypes[7]
+	mi := &file_pulse_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -478,7 +538,7 @@ func (x *CreateTopicResponse) String() string {
 func (*CreateTopicResponse) ProtoMessage() {}
 
 func (x *CreateTopicResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pulse_proto_msgTypes[7]
+	mi := &file_pulse_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -491,7 +551,7 @@ func (x *CreateTopicResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTopicResponse.ProtoReflect.Descriptor instead.
 func (*CreateTopicResponse) Descriptor() ([]byte, []int) {
-	return file_pulse_proto_rawDescGZIP(), []int{7}
+	return file_pulse_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *CreateTopicResponse) GetSuccess() bool {
@@ -509,7 +569,7 @@ type ListTopicsRequest struct {
 
 func (x *ListTopicsRequest) Reset() {
 	*x = ListTopicsRequest{}
-	mi := &file_pulse_proto_msgTypes[8]
+	mi := &file_pulse_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -521,7 +581,7 @@ func (x *ListTopicsRequest) String() string {
 func (*ListTopicsRequest) ProtoMessage() {}
 
 func (x *ListTopicsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pulse_proto_msgTypes[8]
+	mi := &file_pulse_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -534,7 +594,7 @@ func (x *ListTopicsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTopicsRequest.ProtoReflect.Descriptor instead.
 func (*ListTopicsRequest) Descriptor() ([]byte, []int) {
-	return file_pulse_proto_rawDescGZIP(), []int{8}
+	return file_pulse_proto_rawDescGZIP(), []int{9}
 }
 
 type ListTopicsResponse struct {
@@ -546,7 +606,7 @@ type ListTopicsResponse struct {
 
 func (x *ListTopicsResponse) Reset() {
 	*x = ListTopicsResponse{}
-	mi := &file_pulse_proto_msgTypes[9]
+	mi := &file_pulse_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -558,7 +618,7 @@ func (x *ListTopicsResponse) String() string {
 func (*ListTopicsResponse) ProtoMessage() {}
 
 func (x *ListTopicsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pulse_proto_msgTypes[9]
+	mi := &file_pulse_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -571,7 +631,7 @@ func (x *ListTopicsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTopicsResponse.ProtoReflect.Descriptor instead.
 func (*ListTopicsResponse) Descriptor() ([]byte, []int) {
-	return file_pulse_proto_rawDescGZIP(), []int{9}
+	return file_pulse_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListTopicsResponse) GetTopics() []string {
@@ -595,7 +655,12 @@ const file_pulse_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"9\n" +
 	"\x0fPublishResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
-	"\x06offset\x18\x02 \x01(\x04R\x06offset\"c\n" +
+	"\x06offset\x18\x02 \x01(\x04R\x06offset\"{\n" +
+	"\x0ePublishSummary\x12'\n" +
+	"\x0fsucceeded_count\x18\x01 \x01(\x04R\x0esucceededCount\x12!\n" +
+	"\ffailed_count\x18\x02 \x01(\x04R\vfailedCount\x12\x1d\n" +
+	"\n" +
+	"last_error\x18\x03 \x01(\tR\tlastError\"c\n" +
 	"\x0eConsumeRequest\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12#\n" +
 	"\rconsumer_name\x18\x02 \x01(\tR\fconsumerName\x12\x16\n" +
@@ -626,10 +691,10 @@ const file_pulse_proto_rawDesc = "" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\"\x13\n" +
 	"\x11ListTopicsRequest\",\n" +
 	"\x12ListTopicsResponse\x12\x16\n" +
-	"\x06topics\x18\x01 \x03(\tR\x06topics2\xbe\x03\n" +
+	"\x06topics\x18\x01 \x03(\tR\x06topics2\xbb\x03\n" +
 	"\fPulseService\x12>\n" +
-	"\aPublish\x12\x18.pulse.v1.PublishRequest\x1a\x19.pulse.v1.PublishResponse\x12H\n" +
-	"\rStreamPublish\x12\x18.pulse.v1.PublishRequest\x1a\x19.pulse.v1.PublishResponse(\x010\x01\x12@\n" +
+	"\aPublish\x12\x18.pulse.v1.PublishRequest\x1a\x19.pulse.v1.PublishResponse\x12E\n" +
+	"\rStreamPublish\x12\x18.pulse.v1.PublishRequest\x1a\x18.pulse.v1.PublishSummary(\x01\x12@\n" +
 	"\aConsume\x12\x18.pulse.v1.ConsumeRequest\x1a\x19.pulse.v1.ConsumeResponse0\x01\x12M\n" +
 	"\fCommitOffset\x12\x1d.pulse.v1.CommitOffsetRequest\x1a\x1e.pulse.v1.CommitOffsetResponse\x12J\n" +
 	"\vCreateTopic\x12\x1c.pulse.v1.CreateTopicRequest\x1a\x1d.pulse.v1.CreateTopicResponse\x12G\n" +
@@ -648,36 +713,37 @@ func file_pulse_proto_rawDescGZIP() []byte {
 	return file_pulse_proto_rawDescData
 }
 
-var file_pulse_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_pulse_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_pulse_proto_goTypes = []any{
 	(*PublishRequest)(nil),       // 0: pulse.v1.PublishRequest
 	(*PublishResponse)(nil),      // 1: pulse.v1.PublishResponse
-	(*ConsumeRequest)(nil),       // 2: pulse.v1.ConsumeRequest
-	(*ConsumeResponse)(nil),      // 3: pulse.v1.ConsumeResponse
-	(*CommitOffsetRequest)(nil),  // 4: pulse.v1.CommitOffsetRequest
-	(*CommitOffsetResponse)(nil), // 5: pulse.v1.CommitOffsetResponse
-	(*CreateTopicRequest)(nil),   // 6: pulse.v1.CreateTopicRequest
-	(*CreateTopicResponse)(nil),  // 7: pulse.v1.CreateTopicResponse
-	(*ListTopicsRequest)(nil),    // 8: pulse.v1.ListTopicsRequest
-	(*ListTopicsResponse)(nil),   // 9: pulse.v1.ListTopicsResponse
-	nil,                          // 10: pulse.v1.PublishRequest.HeadersEntry
-	nil,                          // 11: pulse.v1.ConsumeResponse.HeadersEntry
+	(*PublishSummary)(nil),       // 2: pulse.v1.PublishSummary
+	(*ConsumeRequest)(nil),       // 3: pulse.v1.ConsumeRequest
+	(*ConsumeResponse)(nil),      // 4: pulse.v1.ConsumeResponse
+	(*CommitOffsetRequest)(nil),  // 5: pulse.v1.CommitOffsetRequest
+	(*CommitOffsetResponse)(nil), // 6: pulse.v1.CommitOffsetResponse
+	(*CreateTopicRequest)(nil),   // 7: pulse.v1.CreateTopicRequest
+	(*CreateTopicResponse)(nil),  // 8: pulse.v1.CreateTopicResponse
+	(*ListTopicsRequest)(nil),    // 9: pulse.v1.ListTopicsRequest
+	(*ListTopicsResponse)(nil),   // 10: pulse.v1.ListTopicsResponse
+	nil,                          // 11: pulse.v1.PublishRequest.HeadersEntry
+	nil,                          // 12: pulse.v1.ConsumeResponse.HeadersEntry
 }
 var file_pulse_proto_depIdxs = []int32{
-	10, // 0: pulse.v1.PublishRequest.headers:type_name -> pulse.v1.PublishRequest.HeadersEntry
-	11, // 1: pulse.v1.ConsumeResponse.headers:type_name -> pulse.v1.ConsumeResponse.HeadersEntry
+	11, // 0: pulse.v1.PublishRequest.headers:type_name -> pulse.v1.PublishRequest.HeadersEntry
+	12, // 1: pulse.v1.ConsumeResponse.headers:type_name -> pulse.v1.ConsumeResponse.HeadersEntry
 	0,  // 2: pulse.v1.PulseService.Publish:input_type -> pulse.v1.PublishRequest
 	0,  // 3: pulse.v1.PulseService.StreamPublish:input_type -> pulse.v1.PublishRequest
-	2,  // 4: pulse.v1.PulseService.Consume:input_type -> pulse.v1.ConsumeRequest
-	4,  // 5: pulse.v1.PulseService.CommitOffset:input_type -> pulse.v1.CommitOffsetRequest
-	6,  // 6: pulse.v1.PulseService.CreateTopic:input_type -> pulse.v1.CreateTopicRequest
-	8,  // 7: pulse.v1.PulseService.ListTopics:input_type -> pulse.v1.ListTopicsRequest
+	3,  // 4: pulse.v1.PulseService.Consume:input_type -> pulse.v1.ConsumeRequest
+	5,  // 5: pulse.v1.PulseService.CommitOffset:input_type -> pulse.v1.CommitOffsetRequest
+	7,  // 6: pulse.v1.PulseService.CreateTopic:input_type -> pulse.v1.CreateTopicRequest
+	9,  // 7: pulse.v1.PulseService.ListTopics:input_type -> pulse.v1.ListTopicsRequest
 	1,  // 8: pulse.v1.PulseService.Publish:output_type -> pulse.v1.PublishResponse
-	1,  // 9: pulse.v1.PulseService.StreamPublish:output_type -> pulse.v1.PublishResponse
-	3,  // 10: pulse.v1.PulseService.Consume:output_type -> pulse.v1.ConsumeResponse
-	5,  // 11: pulse.v1.PulseService.CommitOffset:output_type -> pulse.v1.CommitOffsetResponse
-	7,  // 12: pulse.v1.PulseService.CreateTopic:output_type -> pulse.v1.CreateTopicResponse
-	9,  // 13: pulse.v1.PulseService.ListTopics:output_type -> pulse.v1.ListTopicsResponse
+	2,  // 9: pulse.v1.PulseService.StreamPublish:output_type -> pulse.v1.PublishSummary
+	4,  // 10: pulse.v1.PulseService.Consume:output_type -> pulse.v1.ConsumeResponse
+	6,  // 11: pulse.v1.PulseService.CommitOffset:output_type -> pulse.v1.CommitOffsetResponse
+	8,  // 12: pulse.v1.PulseService.CreateTopic:output_type -> pulse.v1.CreateTopicResponse
+	10, // 13: pulse.v1.PulseService.ListTopics:output_type -> pulse.v1.ListTopicsResponse
 	8,  // [8:14] is the sub-list for method output_type
 	2,  // [2:8] is the sub-list for method input_type
 	2,  // [2:2] is the sub-list for extension type_name
@@ -696,7 +762,7 @@ func file_pulse_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pulse_proto_rawDesc), len(file_pulse_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
