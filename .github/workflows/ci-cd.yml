@@ -1,0 +1,147 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  test-go:
+    name: Test Go (Broker & SDK)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Run Root Tests
+        run: go test ./test/... ./internal/... ./pkg/... ./cmd/...
+
+      - name: Run Go SDK Tests
+        working-directory: sdk/go
+        run: go test ./...
+
+  test-python:
+    name: Test Python SDK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        working-directory: sdk/python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Python Tests
+        working-directory: sdk/python
+        run: pytest
+
+  test-typescript:
+    name: Test TypeScript SDK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: sdk/typescript
+        run: npm ci
+
+      - name: Run TypeScript Tests
+        working-directory: sdk/typescript
+        run: npm test
+
+  release:
+    name: Release
+    needs: [test-go, test-python, test-typescript]
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.tag_version.outputs.new_version }}
+      new_tag: ${{ steps.tag_version.outputs.new_tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: patch
+          release_branches: master
+          initial_version: '1.0.0'
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Build Binaries
+        run: |
+          mkdir -p dist
+          
+          echo "Building for Linux (amd64)..."
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-linux-amd64 cmd/broker/main.go
+          
+          echo "Building for Windows (amd64)..."
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-windows-amd64.exe cmd/broker/main.go
+          
+          echo "Building for macOS (amd64)..."
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-darwin-amd64 cmd/broker/main.go
+          
+          echo "Building for macOS (arm64)..."
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/pulse-darwin-arm64 cmd/broker/main.go
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag_version.outputs.new_tag }}
+          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          files: dist/*
+          generate_release_notes: true
+
+  trigger-sdks:
+    name: Trigger SDK Publishing
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trigger Python SDK Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.new_version }}
+        run: |
+          echo "Triggering Python SDK publish for version $VERSION"
+          gh workflow run publish-python-sdk.yml -f version=$VERSION
+
+      - name: Trigger TypeScript SDK Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.new_version }}
+        run: |
+          echo "Triggering TypeScript SDK publish for version $VERSION"
+          gh workflow run publish-typescript-sdk.yml -f version=$VERSION
