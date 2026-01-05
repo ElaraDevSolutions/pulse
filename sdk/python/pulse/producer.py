@@ -1,5 +1,7 @@
 import json
 import grpc
+import queue
+import threading
 from .config import get_config
 from .proto import pulse_pb2, pulse_pb2_grpc
 
@@ -14,6 +16,29 @@ class Producer:
         self.stub = pulse_pb2_grpc.PulseServiceStub(self.channel)
         
         self._setup_topics(config)
+
+        # Streaming setup
+        self.msg_queue = queue.Queue(maxsize=10000)
+        self.stop_event = threading.Event()
+        self.worker_thread = threading.Thread(target=self._stream_worker, daemon=True)
+        self.worker_thread.start()
+
+    def _stream_worker(self):
+        def request_generator():
+            while not self.stop_event.is_set():
+                try:
+                    item = self.msg_queue.get(timeout=0.1)
+                    if item is None:
+                        break
+                    yield item
+                except queue.Empty:
+                    continue
+        
+        try:
+            self.stub.StreamPublish(request_generator())
+        except Exception as e:
+            # In a real app, we might want to log this or try to reconnect
+            print(f"Stream publish error: {e}")
 
     def _setup_topics(self, config):
         for topic_cfg in config.get("topics", []):
@@ -58,17 +83,14 @@ class Producer:
             headers=headers
         )
         
-        try:
-            self.stub.Publish(request)
-        except grpc.RpcError as e:
-            # TODO: Handle retries based on config
-            raise e
+        self.msg_queue.put(request)
 
     def stream_send(self, message_iterator):
         """
         Send a stream of messages to the broker.
         message_iterator should yield (topic, payload) tuples.
         """
+        # For backward compatibility or explicit batching
         def request_generator():
             for topic, payload in message_iterator:
                 headers = {}
@@ -98,4 +120,8 @@ class Producer:
             raise e
 
     def close(self):
+        self.stop_event.set()
+        self.msg_queue.put(None)
+        self.worker_thread.join()
+        self.channel.close()
         self.channel.close()

@@ -4,6 +4,7 @@ import { createClient } from './proto/client';
 export class Producer {
   private client: any;
   private config: PulseConfig;
+  private stream: any;
 
   constructor(host?: string, port?: number) {
     this.config = getConfig();
@@ -13,6 +14,20 @@ export class Producer {
 
     this.client = createClient(address);
     this.setupTopics();
+    this.initStream();
+  }
+
+  private initStream() {
+    this.stream = this.client.StreamPublish((err: any, summary: any) => {
+      if (err) {
+        console.error('StreamPublish ended with error:', err);
+      }
+    });
+
+    this.stream.on('error', (err: any) => {
+      console.error('StreamPublish stream error:', err);
+      // Simple reconnect attempt could be added here
+    });
   }
 
   private setupTopics() {
@@ -58,12 +73,11 @@ export class Producer {
       headers,
     };
 
-    return new Promise((resolve, reject) => {
-      this.client.Publish(req, (err: any, res: any) => {
-        if (err) return reject(err);
-        resolve();
-      });
-    });
+    // Write to the stream
+    // Note: This is now fire-and-forget for performance.
+    // We don't wait for server acknowledgement for every message.
+    this.stream.write(req);
+    return Promise.resolve();
   }
 
   async streamSend(messages: Array<{ topic: string; payload: any }>): Promise<any> {
@@ -107,6 +121,9 @@ export class Producer {
   }
 
   close() {
+    if (this.stream) {
+      this.stream.end();
+    }
     this.client.close();
   }
 }

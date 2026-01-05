@@ -11,6 +11,15 @@ export function startTestServer(port = 0): Promise<{ server: grpc.Server; port: 
       const res = { id: 'msg-1', offset: 1 };
       callback(null, res);
     },
+    StreamPublish(call: any, callback: any) {
+      let count = 0;
+      call.on('data', (req: any) => {
+        count++;
+      });
+      call.on('end', () => {
+        callback(null, { succeeded_count: count, failed_count: 0, last_error: '' });
+      });
+    },
     Consume(call: any) {
       // write 2 messages then end
       const msgs = [

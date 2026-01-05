@@ -3,6 +3,7 @@ package pulse
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	pb "pulse/pkg/proto"
 
@@ -13,6 +14,8 @@ import (
 type Producer struct {
 	client pb.PulseServiceClient
 	conn   *grpc.ClientConn
+	stream pb.PulseService_StreamPublishClient
+	mu     sync.Mutex
 }
 
 func NewProducer(opts ...ConsumerOptions) (*Producer, error) {
@@ -35,20 +38,32 @@ func NewProducer(opts ...ConsumerOptions) (*Producer, error) {
 		return nil, err
 	}
 
+	client := pb.NewPulseServiceClient(conn)
+	stream, err := client.StreamPublish(context.Background())
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
 	return &Producer{
-		client: pb.NewPulseServiceClient(conn),
+		client: client,
 		conn:   conn,
+		stream: stream,
 	}, nil
 }
 
 func (p *Producer) Send(ctx context.Context, topic string, payload []byte) error {
-	_, err := p.client.Publish(ctx, &pb.PublishRequest{
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.stream.Send(&pb.PublishRequest{
 		Topic:   topic,
 		Payload: payload,
 	})
-	return err
 }
 
 func (p *Producer) Close() {
+	if p.stream != nil {
+		p.stream.CloseAndRecv()
+	}
 	p.conn.Close()
 }

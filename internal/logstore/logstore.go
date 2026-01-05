@@ -388,6 +388,75 @@ func (l *AppendOnlyLog) Append(msg *message.Message) (uint64, error) {
 	return msg.Offset, nil
 }
 
+// AppendBatch writes multiple messages to the log in a single lock operation.
+func (l *AppendOnlyLog) AppendBatch(msgs []*message.Message) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// Initialize first segment if none exists
+	if l.ActiveSegment == nil {
+		if err := l.rotate(); err != nil {
+			return err
+		}
+	}
+
+	for _, msg := range msgs {
+		msg.Offset = l.GlobalOffset
+
+		// Indexing
+		startPos := l.ActiveSegment.Size
+		if len(l.ActiveSegment.Index) == 0 || startPos-l.ActiveSegment.Index[len(l.ActiveSegment.Index)-1].Position >= IndexIntervalBytes {
+			if err := l.appendIndex(msg.Offset, startPos); err != nil {
+				fmt.Printf("Error appending index: %v\n", err)
+			}
+		}
+
+		// Serialize using MessagePack
+		data, err := msg.Serialize()
+		if err != nil {
+			return err
+		}
+
+		totalLen := 4 + len(data)
+
+		// Check if we need to rotate
+		if l.ActiveSegment.Size+int64(totalLen) > l.maxSegmentSize {
+			if err := l.rotate(); err != nil {
+				return err
+			}
+		}
+
+		// Write length prefix
+		lenBuf := make([]byte, 4)
+		binary.BigEndian.PutUint32(lenBuf, uint32(len(data)))
+		if _, err := l.bufWriter.Write(lenBuf); err != nil {
+			return err
+		}
+
+		// Write data
+		if _, err := l.bufWriter.Write(data); err != nil {
+			return err
+		}
+
+		n := totalLen
+
+		// Update state
+		l.ActiveSegment.Size += int64(n)
+		l.TotalSize += int64(n)
+		l.GlobalOffset++
+		l.unflushedCount++
+	}
+
+	// Check flush threshold
+	if l.flushThreshold > 0 && l.unflushedCount >= l.flushThreshold {
+		if err := l.flush(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // flush writes buffered data to the OS.
 // Must be called with lock held.
 func (l *AppendOnlyLog) flush() error {
