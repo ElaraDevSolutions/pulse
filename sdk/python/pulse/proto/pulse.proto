@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package pulse.v1;
+
+option go_package = "pulse/pkg/proto";
+
+service PulseService {
+  // Publish sends a message to a topic.
+  rpc Publish(PublishRequest) returns (PublishResponse);
+
+  // StreamPublish sends a stream of messages to a topic.
+  rpc StreamPublish(stream PublishRequest) returns (PublishSummary);
+
+  // Consume reads messages from a topic as a stream.
+  rpc Consume(ConsumeRequest) returns (stream ConsumeResponse);
+
+  // CommitOffset commits the offset for a consumer group.
+  rpc CommitOffset(CommitOffsetRequest) returns (CommitOffsetResponse);
+
+  // CreateTopic creates a new topic.
+  rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse);
+
+  // ListTopics returns a list of all topics.
+  rpc ListTopics(ListTopicsRequest) returns (ListTopicsResponse);
+}
+
+message PublishRequest {
+  string topic = 1;
+  bytes payload = 2;
+  map<string, string> headers = 3;
+}
+
+message PublishResponse {
+  string id = 1;
+  uint64 offset = 2;
+}
+
+message PublishSummary {
+  uint64 succeeded_count = 1;
+  uint64 failed_count = 2;
+  string last_error = 3;
+}
+
+message ConsumeRequest {
+  string topic = 1;
+  string consumer_name = 2;
+  uint64 offset = 3; // Optional: start from specific offset. If 0, continues from last committed.
+}
+
+message ConsumeResponse {
+  uint64 offset = 1;
+  int64 timestamp = 2;
+  bytes payload = 3;
+  map<string, string> headers = 4;
+}
+
+message CommitOffsetRequest {
+  string topic = 1;
+  string consumer_name = 2;
+  uint64 offset = 3;
+}
+
+message CommitOffsetResponse {
+  bool success = 1;
+}
+
+message CreateTopicRequest {
+  string topic = 1;
+  bool fifo = 2;
+  int64 retention_bytes = 3;
+  int64 retention_time = 4;
+  int32 flush_threshold = 5;
+  int64 flush_interval = 6;
+  int64 segment_size = 7;
+}
+
+message CreateTopicResponse {
+  bool success = 1;
+}
+
+message ListTopicsRequest {}
+
+message ListTopicsResponse {
+  repeated string topics = 1;
+}
+

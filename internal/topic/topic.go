@@ -30,6 +30,7 @@ type Stats struct {
 // LogStore defines the interface for the log storage.
 type LogStore interface {
 	Append(msg *message.Message) (uint64, error)
+	AppendBatch(msgs []*message.Message) error
 	Read(offset uint64, max int) ([]*message.Message, error)
 	RunRetention(maxBytes int64, maxAge time.Duration) error
 	Close() error
@@ -248,8 +249,17 @@ func (t *Topic) Publish(msg *message.Message) {
 	t.msgInCount.Add(1)
 	if _, err := t.log.Append(msg); err != nil {
 		fmt.Printf("Error appending message to topic %s: %v\n", t.Name, err)
-	} else {
-		t.broadcast()
+	}
+	// Note: We do NOT call t.broadcast() here anymore.
+	// We rely on t.log.SetFlushCallback(t.broadcast) to notify consumers
+	// only when data is actually flushed to disk and ready to be read.
+}
+
+// PublishBatch sends multiple messages to the topic.
+func (t *Topic) PublishBatch(msgs []*message.Message) {
+	t.msgInCount.Add(uint64(len(msgs)))
+	if err := t.log.AppendBatch(msgs); err != nil {
+		fmt.Printf("Error appending batch to topic %s: %v\n", t.Name, err)
 	}
 }
 

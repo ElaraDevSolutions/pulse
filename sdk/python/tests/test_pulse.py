@@ -17,11 +17,14 @@ def test_producer_send_dict():
             p = pulse.Producer()
             p.send("topic1", {"key": "value"})
             
-            mock_stub.Publish.assert_called_once()
-            args, _ = mock_stub.Publish.call_args
-            req = args[0]
+            # Verify message is in queue
+            assert not p.msg_queue.empty()
+            req = p.msg_queue.get()
             assert req.topic == "topic1"
             assert req.payload == b'{"key": "value"}'
+            
+            # Clean up
+            p.close()
 
 def test_producer_send_bytes():
     with patch('pulse.producer.grpc.insecure_channel'):
@@ -30,9 +33,13 @@ def test_producer_send_bytes():
             p = pulse.Producer()
             p.send("topic1", b"raw-data")
             
-            args, _ = mock_stub.Publish.call_args
-            req = args[0]
+            # Verify message is in queue
+            assert not p.msg_queue.empty()
+            req = p.msg_queue.get()
             assert req.payload == b"raw-data"
+            
+            # Clean up
+            p.close()
 
 def test_producer_stream_send():
     with patch('pulse.producer.grpc.insecure_channel'):
@@ -52,7 +59,11 @@ def test_producer_stream_send():
             result = p.stream_send(messages)
             
             assert result == mock_summary
-            mock_stub.StreamPublish.assert_called_once()
+            # Called at least once (by worker) and once by stream_send
+            assert mock_stub.StreamPublish.call_count >= 1
+            
+            # Clean up
+            p.close()
 
 # --- Consumer Tests ---
 

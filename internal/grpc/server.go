@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"pulse/internal/broker"
+	"pulse/pkg/message"
 	pb "pulse/pkg/proto"
 )
 
@@ -48,9 +49,31 @@ func (s *Server) StreamPublish(stream pb.PulseService_StreamPublishServer) error
 	var failed uint64
 	var lastErr string
 
+	batchSize := 100
+	// Map topic -> batch of messages
+	batches := make(map[string][]*message.Message)
+
+	flushBatch := func() {
+		for topic, msgs := range batches {
+			if len(msgs) == 0 {
+				continue
+			}
+			err := s.Broker.ProduceBatch(topic, msgs)
+			if err != nil {
+				failed += uint64(len(msgs))
+				lastErr = err.Error()
+			} else {
+				succeeded += uint64(len(msgs))
+			}
+			// Clear batch
+			batches[topic] = batches[topic][:0]
+		}
+	}
+
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
+			flushBatch()
 			return stream.SendAndClose(&pb.PublishSummary{
 				SucceededCount: succeeded,
 				FailedCount:    failed,
@@ -67,12 +90,18 @@ func (s *Server) StreamPublish(stream pb.PulseService_StreamPublishServer) error
 			continue
 		}
 
-		err = s.Broker.Produce(req.Topic, req.Payload, req.Headers)
-		if err != nil {
-			failed++
-			lastErr = err.Error()
-		} else {
-			succeeded++
+		msg := message.NewMessage(0, req.Payload, req.Headers)
+		batches[req.Topic] = append(batches[req.Topic], &msg)
+
+		if len(batches[req.Topic]) >= batchSize {
+			err := s.Broker.ProduceBatch(req.Topic, batches[req.Topic])
+			if err != nil {
+				failed += uint64(len(batches[req.Topic]))
+				lastErr = err.Error()
+			} else {
+				succeeded += uint64(len(batches[req.Topic]))
+			}
+			batches[req.Topic] = batches[req.Topic][:0]
 		}
 	}
 }

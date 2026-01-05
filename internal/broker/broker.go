@@ -188,6 +188,20 @@ func (b *Broker) Produce(topicName string, payload []byte, headers map[string]st
 	return nil
 }
 
+// ProduceBatch receives a batch of messages and routes them to the specified topic.
+func (b *Broker) ProduceBatch(topicName string, reqs []*message.Message) error {
+	b.mu.RLock()
+	t, exists := b.topics[topicName]
+	b.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("topic '%s' does not exist", topicName)
+	}
+
+	t.PublishBatch(reqs)
+	return nil
+}
+
 // Consume reads messages from a topic starting at the given offset.
 func (b *Broker) Consume(topicName string, offset uint64, max int) ([]*message.Message, error) {
 	b.mu.RLock()
