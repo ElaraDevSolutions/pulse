@@ -1,11 +1,13 @@
 # Build Stage
-FROM golang:1.24-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /src
 COPY . .
 # Build Broker
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /bin/pulse ./cmd/broker
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w" -o /bin/pulse ./cmd/broker
 # Build UI
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /bin/pulse-ui ./cmd/ui
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w" -o /bin/pulse-ui ./cmd/ui
 
 # Final Stage
 FROM alpine:latest
